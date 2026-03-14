@@ -12,7 +12,9 @@ Abyssal is a modular cybersecurity toolkit for Linux that helps you enhance priv
 
 ## Installation
 1. Download or clone this repository.
-2. Run `scripts/install.sh` to install dependencies.
+2. cd /Abyssal/abyssal/scripts
+make the installer executable `chmod +x install.sh`
+ Run `scripts/install.sh` to install dependencies.
 
 ## Usage
 Run `python3 abyssal.py` with any of these options:
@@ -30,3 +32,5 @@ python3 abyssal.py --full
 ```
 
 Abyssal is ideal for security enthusiasts and advanced users who want a flexible, scriptable security toolkit for Linux systems.
+
+# NOTE : EXPECT BUGS AND ISSUES AS THE TOOL IS STILL UNDER DEVELOPMENT
