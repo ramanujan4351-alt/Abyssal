@@ -13,9 +13,9 @@ def full_mode():
     harden_mode()
 
 def print_logo_and_usage():
-    print("\n┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
-    print("┃      🕶️   ＡＢＹＳＳＡＬ   🐍      ┃")
-    print("┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n")
+    print("\n▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓")
+    print("░░░░░░ ABYSSAL SECURITY ░░░░░░")
+    print("▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓\n")
     print("Usage:")
     print("  python3 abyssal.py --help         # Show help")
     print("  python3 abyssal.py --anon         # Start anonymity mode")

@@ -1,7 +1,7 @@
 {
     "Base64 Encoded": "[A-Za-z0-9+/]{40,}={0,2}",
     "Suspicious PowerShell": "powershell.exe|Invoke-Expression|IEX",
-    "Reverse Shell": "(bash|nc|perl|python|php|ruby).*\s(\d{1,3}\.){3}\d{1,3}:\d{1,5}",
-    "Obfuscated JS": "eval\((atob|unescape|decodeURIComponent)",
+    "Reverse Shell": "(bash|nc|perl|python|php|ruby).*\\s(\\d{1,3}\\.){3}\\d{1,3}:\\d{1,5}",
+    "Obfuscated JS": "eval\\((atob|unescape|decodeURIComponent)",
     "Hidden Executable": "ELF|MZ"
 }
