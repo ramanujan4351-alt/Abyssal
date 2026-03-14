@@ -25,7 +25,11 @@ Run `python3 abyssal.py` with any of these options:
 - `--full`    Run all modules  
 - `--logkiller`  Erase system logs  
 - `--antimitm`  Run anti-MITM checks
-
+- `--interactive` Interactive user interface
+- `--live` Start live monitoring
+- `--live-on`  Enable live monitoring on system boot
+  - `--live-off` Disable live monitoring on system boot
+  - `--startup` COnfigure startup settings
 **Example:**
 ```
 python3 abyssal.py --full
