@@ -102,12 +102,19 @@ python3 abyssal.py --anon
 What it does:
 
 🌐 Tor Service - Routes all traffic through Tor
+
 🔧 MAC Randomization - Generates random MAC addresses
+
 🏷️ Hostname Change - Sets random hostname
+
 🗑️ DNS Cache Flush - Clears DNS history
+
 🔑 Process Killer - Terminates keyring/secret services
+
 🌐 Proxy Setup - Configures HTTP/HTTPS/SOCKS proxies
+
 🔍 Status Monitoring:
+
 bash
 # Check anonymity status
 python3 abyssal.py --check-anon
