@@ -2,12 +2,12 @@
 
 Abyssal is a modular cybersecurity toolkit for Linux that helps you enhance privacy, scan for threats, harden your system, erase logs, and check for MITM attacks—all from a simple command-line interface.
 
-## 🚀 INSTALLATION
+# 🚀 INSTALLATION
  
 ## **Step 1: Clone the Repository**
 ```bash
 `git clone https://github.com/ramanujan4351-alt/Abyssal.git `
-`cd abyssal`
+`cd Abyssal/abyssal`
 Step 2: Run the Auto-Installer
 `bash`
 chmod +x install.sh
