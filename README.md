@@ -137,15 +137,25 @@ python3 abyssal.py --check-anon     # Check anonymity status
 python3 abyssal.py --restore        # Restore original identity
 
 🎮 Interactive Mode Options: (NOTE INTERACTIVE MODE IS NOT FUNCTIONAL YET)
+
 1️⃣ 🤖 ML Real-time Monitor    # AI-powered real-time monitoring
+
 2️⃣ 🧠 ML Comprehensive Scan  # Full ML security analysis
+
 3️⃣ 📁 ML File Analysis      # ML file anomaly detection
+
 4️⃣ 🔧 ML Process Analysis   # ML process behavior analysis
+
 5️⃣ 🌐 ML Network Analysis  # ML network anomaly detection
+
 6️⃣ 👤 Anonymity Mode        # Complete identity protection
+
 7️⃣ 🔧 Retrain Models       # Retrain ML models
+
 8️⃣ ⚙️ ML Configuration      # Configure ML settings
+
 9️⃣ 📊 Model Statistics     # Show ML model info
+
 🎯 USE CASES
 🔒 For Pentesters:
 bash
@@ -167,113 +177,201 @@ python3 abyssal.py --ml-scan
  
 # Analyze suspicious files
 python3 abyssal.py --interactive
+
 # Option 3: ML File Analysis
 🔍 For Incident Response:
+
 bash
 # Quick threat assessment
+
 python3 abyssal.py --ml-scan
  
 # Detailed process analysis
+
 python3 abyssal.py --interactive
 # Option 4: ML Process Analysis
  
 # Network anomaly detection
+
 python3 abyssal.py --interactive
+
 # Option 5: ML Network Analysis
+
 ⚙️ CONFIGURATION
+
 📁 Configuration Files:
+
 bash
 ~/.config/abyssal/
+
 ├── models/           # Trained ML models
 ├── logs/            # Log files
 └── config.json      # Configuration settings
 🔧 Configure Settings:
+
 bash
+
 python3 abyssal.py --config
+
 Available settings:
 
 ml_detection: Toggle ML detection
+
 scan_interval: Change scan frequency
+
 auto_quarantine: Toggle automatic quarantine
+
 alert_sound: Toggle alert sounds
+
 🧠 Retrain Models:
 bash
+
 # Retrain with current system data
+
 python3 abyssal.py --retrain
+
 🐛 TROUBLESHOOTING
+
 ❌ Common Issues:
+
 Installation Errors:
+
 bash
+
 # If pip fails, try system packages
+
 sudo apt install python3-sklearn python3-numpy python3-pandas python3-psutil
  
 # If permissions fail
+
 sudo chmod +x abyssal.py install.sh
+
 ML Model Errors:
+
 bash
+
 # Reset ML models
+
 rm -rf ~/.config/abyssal/models/
+
 python3 abyssal.py --retrain
+
 Anonymity Mode Issues:
+
 bash
+
 # Check Tor status
+
 sudo systemctl status tor
+
  
 # Start Tor manually
+
 sudo systemctl start tor
+
  
 # Check MAC change permissions
+
 sudo ifconfig
+
 Permission Errors:
+
 bash
+
 # Fix permissions
+
 sudo chown $USER:$USER ~/.config/abyssal/ -R
+
 chmod +x abyssal.py
+
 🔍 Debug Mode:
+
 bash
+
 # Enable debug logging
+
 export PYTHONPATH=/path/to/abyssal
+
 python3 abyssal.py --ml-monitor 2>&1 | tee abyssal.log
+
 📊 PERFORMANCE
+
 ⚡ System Requirements:
+
 CPU: 2+ cores recommended
+
 RAM: 4GB+ recommended
+
 Storage: 1GB+ for models
+
 Network: Tor connection for anonymity
-📈 ML Model Performance:
+
+
 Training time: 2-5 minutes initial
+
 Inference time: <1 second per scan
+
 Memory usage: ~200MB for models
+
 CPU usage: 10-20% during monitoring
+
 🛡️ SECURITY NOTES
+
 ⚠️ Important Warnings:
+
 Anonymity mode requires sudo privileges
+
 Tor service must be installed and running
+
 MAC changes may temporarily disconnect network
+
 Process termination may affect some applications
+
 🔐 Best Practices:
+
 Always check anonymity status after activation
+
 Restore identity when finished
+
 Keep models updated with regular retraining
+
 Monitor logs for false positives
+
 Test in safe environment before critical use
+
 📝 LICENSE
+
 This project is licensed under the MIT License.
 
 🤝 CONTRIBUTING
+
 Fork the repository
+
 Create your feature branch (git checkout -b feature/AmazingFeature)
+
 Commit your changes (git commit -m 'Add some AmazingFeature')
+
 Push to the branch (git push origin feature/AmazingFeature)
+
 Open a Pull Request
+
 SUPPORT/FEEDBACK - INSTAGRAM @abyssalsec
+
 🐛 Report bugs: Create an issue
+
 💡 Feature requests: Create an issue with "enhancement" label
+
 🔒 Security issues: Contact maintainers directly
-🙏 ACKNOWLEDGMENTS
+
+ACKNOWLEDGMENTS
+
 scikit-learn - Machine learning library
+
 psutil - System monitoring
+
 Tor Project - Anonymity network
+
 🔥 READY FOR PENTESTERS - STAY ANONYMOUS, STAY SECURE! 🔥
+
 Made with ❤️ for the cybersecurity community
 # NOTE : EXPECT BUGS AND ISSUES AS THE TOOL IS STILL UNDER DEVELOPMENT
