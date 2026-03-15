@@ -232,7 +232,7 @@ Create your feature branch (git checkout -b feature/AmazingFeature)
 Commit your changes (git commit -m 'Add some AmazingFeature')
 Push to the branch (git push origin feature/AmazingFeature)
 Open a Pull Request
-📞 SUPPORT
+SUPPORT/FEEDBACK - INSTAGRAM @abyssalsec
 🐛 Report bugs: Create an issue
 💡 Feature requests: Create an issue with "enhancement" label
 🔒 Security issues: Contact maintainers directly
