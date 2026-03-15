@@ -97,8 +97,10 @@ python3 abyssal.py --ml-scan
 
 python3 abyssal.py --interactive
 
-# Select option 3: ML File Analysis
+Select option 3: ML File Analysis
+
 # 👤 ANONYMITY MODE
+
 🎭 Complete Identity Protection:
 bash
  Activate full anonymity
@@ -122,7 +124,7 @@ What it does:
 🔍 Status Monitoring:
 
 bash
-# Check anonymity status
+ Check anonymity status
 python3 abyssal.py --check-anon
 Shows:
 
@@ -154,7 +156,7 @@ python3 abyssal.py --retrain        # Retrain ML models
 
 python3 abyssal.py --config         # Configure ML settings
 
-👤 Anonymity Commands:
+# 👤 Anonymity Commands:
 bash
 
 python3 abyssal.py --anon           # Activate anonymity mode
@@ -163,7 +165,7 @@ python3 abyssal.py --check-anon     # Check anonymity status
 
 python3 abyssal.py --restore        # Restore original identity
 
-🎮 Interactive Mode Options: (NOTE INTERACTIVE MODE IS NOT FUNCTIONAL YET)
+# 🎮 Interactive Mode Options: (NOTE INTERACTIVE MODE IS NOT FUNCTIONAL YET)
 
 1️⃣ 🤖 ML Real-time Monitor    # AI-powered real-time monitoring
 
