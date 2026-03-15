@@ -40,15 +40,15 @@ For Immediate Protection:
 
 bash
 
-# Start AI/ML real-time monitoring
+ Start AI/ML real-time monitoring
 
 python3 abyssal.py --ml-monitor
  
-# Activate complete anonymity
+ Activate complete anonymity
 
 python3 abyssal.py --anon
  
-# Run comprehensive security scan
+ Run comprehensive security scan
 
 python3 abyssal.py --ml-scan
 
@@ -85,20 +85,26 @@ File metadata examination
 
 ## 🔍 Real-time Threat Detection:
 bash
-# Continuous ML monitoring (15-second intervals)
+Continuous ML monitoring (15-second intervals)
+
 python3 abyssal.py --ml-monitor
  
-# One-time comprehensive scan
+ One-time comprehensive scan
+
 python3 abyssal.py --ml-scan
  
 # Analyze specific file
+
 python3 abyssal.py --interactive
+
 # Select option 3: ML File Analysis
 # 👤 ANONYMITY MODE
 🎭 Complete Identity Protection:
 bash
-# Activate full anonymity
+ Activate full anonymity
+ 
 python3 abyssal.py --anon
+
 What it does:
 
 🌐 Tor Service - Routes all traffic through Tor
@@ -181,25 +187,32 @@ python3 abyssal.py --restore        # Restore original identity
 🔒 For Pentesters:
 bash
 # Before pentesting - go anonymous
+
 python3 abyssal.py --anon
  
 # During pentesting - monitor for threats
+
 python3 abyssal.py --ml-monitor
  
 # After pentesting - restore identity
+
 python3 abyssal.py --restore
 🛡️ For System Security:
 bash
 # Continuous monitoring
+
 python3 abyssal.py --ml-monitor
  
 # Periodic comprehensive scans
+
 python3 abyssal.py --ml-scan
  
 # Analyze suspicious files
+
 python3 abyssal.py --interactive
 
 # Option 3: ML File Analysis
+
 🔍 For Incident Response:
 
 bash
@@ -259,11 +272,11 @@ Installation Errors:
 
 bash
 
-# If pip fails, try system packages
+ If pip fails, try system packages
 
 sudo apt install python3-sklearn python3-numpy python3-pandas python3-psutil
  
-# If permissions fail
+ If permissions fail
 
 sudo chmod +x abyssal.py install.sh
 
@@ -271,7 +284,7 @@ ML Model Errors:
 
 bash
 
-# Reset ML models
+ Reset ML models
 
 rm -rf ~/.config/abyssal/models/
 
@@ -281,17 +294,17 @@ Anonymity Mode Issues:
 
 bash
 
-# Check Tor status
+ Check Tor status
 
 sudo systemctl status tor
 
  
-# Start Tor manually
+ Start Tor manually
 
 sudo systemctl start tor
 
  
-# Check MAC change permissions
+ Check MAC change permissions
 
 sudo ifconfig
 
@@ -299,23 +312,23 @@ Permission Errors:
 
 bash
 
-# Fix permissions
+ Fix permissions
 
 sudo chown $USER:$USER ~/.config/abyssal/ -R
 
 chmod +x abyssal.py
 
-🔍 Debug Mode:
+# 🔍 Debug Mode:
 
 bash
 
-# Enable debug logging
+ Enable debug logging
 
 export PYTHONPATH=/path/to/abyssal
 
 python3 abyssal.py --ml-monitor 2>&1 | tee abyssal.log
 
-📊 PERFORMANCE
+# 📊 PERFORMANCE
 
 ⚡ System Requirements:
 
@@ -336,7 +349,7 @@ Memory usage: ~200MB for models
 
 CPU usage: 10-20% during monitoring
 
-🛡️ SECURITY NOTES
+# 🛡️ SECURITY NOTES
 
 ⚠️ Important Warnings:
 
@@ -348,7 +361,7 @@ MAC changes may temporarily disconnect network
 
 Process termination may affect some applications
 
-🔐 Best Practices:
+# 🔐 Best Practices:
 
 Always check anonymity status after activation
 
@@ -360,11 +373,11 @@ Monitor logs for false positives
 
 Test in safe environment before critical use
 
-📝 LICENSE
+# 📝 LICENSE
 
 This project is licensed under the MIT License.
 
-🤝 CONTRIBUTING
+# 🤝 CONTRIBUTING
 
 Fork the repository
 
