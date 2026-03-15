@@ -39,17 +39,28 @@ bash
 python3 abyssal.py --interactive (not functional currently)
 ## 🤖 AI/ML FEATURES
 🧠 Machine Learning Models:
+
 Isolation Forest - Unsupervised anomaly detection
+
 One-Class SVM - Novelty detection for outliers
+
 Random Forest - Supervised classification
+
 Feature Scaling - StandardScaler for normalization
+
 ## 📊 Advanced Feature Extraction:
 400+ features per data point
+
 Shannon entropy analysis for encrypted content
+
 Byte frequency distribution
+
 Process behavior patterns
+
 Network connection analysis
+
 File metadata examination
+
 ## 🔍 Real-time Threat Detection:
 bash
 # Continuous ML monitoring (15-second intervals)
@@ -81,10 +92,15 @@ python3 abyssal.py --check-anon
 Shows:
 
 Tor service status
+
 Current MAC addresses
+
 Current hostname
+
 Proxy environment variables
+
 Dangerous processes detection
+
 🔄 Safe Restoration:
 bash
 # Restore original identity
@@ -92,6 +108,7 @@ python3 abyssal.py --restore
 📚 COMMAND REFERENCE
 # 🤖 AI/ML Commands:
 bash
+
 python3 abyssal.py --interactive    # Full AI/ML control panel
 
 python3 abyssal.py --ml-monitor     # Real-time ML monitoring
@@ -104,10 +121,14 @@ python3 abyssal.py --config         # Configure ML settings
 
 👤 Anonymity Commands:
 bash
+
 python3 abyssal.py --anon           # Activate anonymity mode
+
 python3 abyssal.py --check-anon     # Check anonymity status
+
 python3 abyssal.py --restore        # Restore original identity
-🎮 Interactive Mode Options: (KINDLY NOTE INTERACTIVE MODE IS NOT FUNCTIONAL YET)
+
+🎮 Interactive Mode Options: (NOTE INTERACTIVE MODE IS NOT FUNCTIONAL YET)
 1️⃣ 🤖 ML Real-time Monitor    # AI-powered real-time monitoring
 2️⃣ 🧠 ML Comprehensive Scan  # Full ML security analysis
 3️⃣ 📁 ML File Analysis      # ML file anomaly detection
