@@ -11,15 +11,23 @@ Abyssal is a modular cybersecurity toolkit for Linux that helps you enhance priv
 Step 2: Run the Auto-Installer
 `bash`
 chmod +x install.sh
+
 ./install.sh
+
 What the installer does:
 
 ✅ Updates package lists
+
 ✅ Installs Python3 and pip
+
 ✅ Installs ML packages: scikit-learn, numpy, pandas, psutil
+
 ✅ Installs security tools: nmap, smbclient, curl, ftp
+
 ✅ Creates configuration directories
+
 ✅ Sets permissions and tests installation
+
 Step 3: Verify Installation
 bash
 python3 abyssal.py --help
