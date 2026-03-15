@@ -93,10 +93,15 @@ python3 abyssal.py --restore
 # 🤖 AI/ML Commands:
 bash
 python3 abyssal.py --interactive    # Full AI/ML control panel
+
 python3 abyssal.py --ml-monitor     # Real-time ML monitoring
+
 python3 abyssal.py --ml-scan        # ML comprehensive scan
+
 python3 abyssal.py --retrain        # Retrain ML models
+
 python3 abyssal.py --config         # Configure ML settings
+
 👤 Anonymity Commands:
 bash
 python3 abyssal.py --anon           # Activate anonymity mode
