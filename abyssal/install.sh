@@ -26,9 +26,70 @@ sudo apt install -y python3 python3-pip python3-dev
 echo "🧠 Installing Machine Learning dependencies..."
 sudo apt install -y python3-sklearn python3-numpy python3-pandas python3-psutil
 
-# Install additional security tools
-echo "🔒 Installing security tools..."
-sudo apt install -y nmap smbclient curl wget ftp
+# Install additional security tools and prerequisites
+echo "🔒 Installing security tools and prerequisites..."
+sudo apt install -y nmap smbclient curl wget ftp tor net-tools netcat-openbsd
+
+# Install system utilities
+echo "🔧 Installing system utilities..."
+sudo apt install -y systemd-resolved hostname
+
+# Create desktop launcher
+echo "🚀 Creating desktop launcher..."
+DESKTOP_DIR="$HOME/Desktop"
+APPLICATIONS_DIR="$HOME/.local/share/applications"
+
+# Create applications directory if it doesn't exist
+mkdir -p "$APPLICATIONS_DIR"
+
+# Copy desktop file to applications directory
+cp abyssal.desktop "$APPLICATIONS_DIR/"
+
+# Also copy to desktop for easy access
+cp abyssal.desktop "$DESKTOP_DIR/"
+
+# Make launcher executable
+chmod +x "$APPLICATIONS_DIR/abyssal.desktop"
+chmod +x "$DESKTOP_DIR/abyssal.desktop"
+
+# Update the desktop file with correct path
+sed -i "s|/home/malfoy/Desktop/abyssal/abyssal.py|$PWD/abyssal.py|g" "$APPLICATIONS_DIR/abyssal.desktop"
+sed -i "s|/home/malfoy/Desktop/abyssal/abyssal.py|$PWD/abyssal.py|g" "$DESKTOP_DIR/abyssal.desktop"
+
+# Update desktop database
+update-desktop-database "$APPLICATIONS_DIR" 2>/dev/null || true
+
+# Install the interactive launcher
+echo "🚀 Installing interactive launcher..."
+chmod +x abyssal-launcher.sh
+
+# Create launcher desktop entry
+cat > "$APPLICATIONS_DIR/Abyssal Launcher.desktop" << EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Abyssal Security Launcher
+Name[en_US]=Abyssal Security Launcher
+Comment=Interactive Launcher for Abyssal Security Framework
+Comment[en_US]=Interactive launcher with all Abyssal Security options
+Exec=$PWD/abyssal-launcher.sh
+Icon=security-high
+Terminal=true
+Categories=Security;System;Network;
+Keywords=security;pentesting;anonymity;ai;ml;threat;detection;launcher;
+StartupNotify=true
+StartupWMClass=AbyssalLauncher
+EOF
+
+# Copy launcher to desktop too
+cp "$APPLICATIONS_DIR/Abyssal Launcher.desktop" "$DESKTOP_DIR/"
+
+# Make launchers executable
+chmod +x "$APPLICATIONS_DIR/Abyssal Launcher.desktop"
+chmod +x "$DESKTOP_DIR/Abyssal Launcher.desktop"
+
+# Update desktop database again
+update-desktop-database "$APPLICATIONS_DIR" 2>/dev/null || true
 
 # Install additional Python packages if needed
 echo "📦 Installing additional Python packages..."
@@ -61,7 +122,10 @@ echo
 echo "✅ ABYSSAL SECURITY installation complete!"
 echo
 echo "🚀 QUICK START:"
-echo "   python3 abyssal.py --interactive"
+echo "   • Double-click 'Abyssal Security' on your desktop (direct launch)"
+echo "   • Double-click 'Abyssal Security Launcher' on your desktop (interactive menu)"
+echo "   • Or run: python3 abyssal.py --interactive"
+echo "   • Or run: ./abyssal-launcher.sh (interactive menu)"
 echo
 echo "🤖 AI/ML COMMANDS:"
 echo "   python3 abyssal.py --ml-monitor     # Real-time ML monitoring"
@@ -97,5 +161,19 @@ echo "   6️⃣ 👤 Anonymity Mode        # Complete identity protection"
 echo "   7️⃣ 🔧 Retrain Models       # Retrain ML models"
 echo "   8️⃣ ⚙️ ML Configuration      # Configure ML settings"
 echo "   9️⃣ 📊 Model Statistics     # Show ML model info"
+
+echo
+echo "📦 WHAT WAS INSTALLED:"
+echo "   ✅ Python3 and pip"
+echo "   ✅ ML packages: scikit-learn, numpy, pandas, psutil"
+echo "   ✅ Security tools: nmap, smbclient, curl, wget, ftp"
+echo "   ✅ Tor service for anonymity"
+echo "   ✅ Network tools: net-tools, netcat-openbsd"
+echo "   ✅ System utilities: systemd-resolve, hostname"
+echo "   ✅ Desktop launcher (direct Abyssal launch)"
+echo "   ✅ Interactive launcher (menu-driven interface)"
+echo "   ✅ Configuration directories"
+echo "   ✅ Application menu integration"
+
 echo
 echo "🔥 PERFECT FOR PENTESTERS - STAY ANONYMOUS, STAY SECURE! 🔥"

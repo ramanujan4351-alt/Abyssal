@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Abyssal Security
+Name[en_US]=Abyssal Security
+Comment=AI/ML Security Framework for Pentesters
+Comment[en_US]=Advanced Machine Learning Threat Detection & Anonymity Framework
+Exec=python3 /home/malfoy/Desktop/abyssal/abyssal.py --interactive
+Icon=security-high
+Terminal=true
+Categories=Security;System;Network;
+Keywords=security;pentesting;anonymity;ai;ml;threat;detection;
+StartupNotify=true
+StartupWMClass=AbyssalSecurity

@@ -403,7 +403,7 @@ class MLThreatDetector:
                 if rf_pred == 1 or max(rf_proba) < 0.5:
                     anomalies.append(f"Random Forest anomaly (confidence: {max(rf_proba):.2f})")
                     
-            return anomalies
+            return list(anomalies)
             
         except Exception as e:
             logger.debug(f"Error in anomaly detection: {e}")
@@ -879,16 +879,17 @@ class AbyssalSecurity:
                 
                 # ML File System Analysis
                 print("  📁 ML File System Analysis...")
-                for file_path in Path('/tmp').rglob('*')[:50]:  # Limit for performance
+                for file_path in list(Path('/tmp').rglob('*'))[:50]:  # Limit for performance
                     try:
-                        threats = self.ml_detector.analyze_file_with_ml(file_path)
+                        threats = self.ml_detector.analyze_file_with_ml(str(file_path))
                         all_threats.extend(threats)
                     except:
                         continue
                 
                 # ML Process Analysis
                 print("  🔧 ML Process Analysis...")
-                for process in psutil.process_iter(['pid'])[:50]:  # Limit for performance
+                processes = list(psutil.process_iter(['pid']))[:50]  # Convert to list first
+                for process in processes:
                     try:
                         pid = process.info['pid']
                         threats = self.ml_detector.analyze_process_with_ml(pid)
@@ -898,7 +899,7 @@ class AbyssalSecurity:
                 
                 # ML Network Analysis
                 print("  🌐 ML Network Analysis...")
-                connections = psutil.net_connections()[:50]  # Limit for performance
+                connections = list(psutil.net_connections())[:50]  # Convert to list first
                 for conn in connections:
                     try:
                         threats = self.ml_detector.analyze_network_with_ml(conn)
@@ -937,59 +938,81 @@ class AbyssalSecurity:
         print(f"\n📊 Final ML alert count: {alert_count}")
     
     def run_ml_comprehensive_scan(self):
-        """Run comprehensive ML scan"""
+        """Run comprehensive ML security scan"""
         print("🤖 COMPREHENSIVE ML SECURITY SCAN")
         print("=" * 50)
-        
-        all_threats = []
         
         # ML File System Scan
         print("📁 ML File System Scan...")
         file_threats = []
-        for file_path in Path('/tmp').rglob('*')[:100]:
-            try:
-                threats = self.ml_detector.analyze_file_with_ml(file_path)
-                file_threats.extend(threats)
-            except:
-                continue
-                
-        print(f"   Found {len(file_threats)} file anomalies")
-        all_threats.extend(file_threats)
+        try:
+            # Get all files first
+            all_files = list(Path('/tmp').rglob('*'))
+            total_files = len(all_files)
+            print(f"   Found {total_files} files to scan...")
+            
+            scan_count = 0
+            for file_path in all_files:
+                scan_count += 1
+                if scan_count % 50 == 0 or scan_count == total_files:
+                    print(f"   Scanned {scan_count}/{total_files} files...")
+                    
+                try:
+                    with open(file_path, 'rb') as f:
+                        threats = self.ml_detector.analyze_file_with_ml(str(file_path))
+                        if threats:
+                            file_threats.extend(threats)
+                except:
+                    continue
+                    
+            print(f"   Completed: Scanned {scan_count} files")
+            print(f"   ML file threats: {len(file_threats)}")
+            
+        except Exception as e:
+            print(f"   ❌ File scan error: {e}")
         
         # ML Process Scan
-        print("🔧 ML Process Scan...")
+        print("\n🔧 ML Process Scan...")
         process_threats = []
-        for process in psutil.process_iter(['pid'])[:100]:
-            try:
-                pid = process.info['pid']
-                threats = self.ml_detector.analyze_process_with_ml(pid)
-                process_threats.extend(threats)
-            except:
-                continue
-                
-        print(f"   Found {len(process_threats)} process anomalies")
-        all_threats.extend(process_threats)
+        try:
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                try:
+                    threats = self.ml_detector.analyze_process_with_ml(proc.info['pid'])
+                    if threats:
+                        process_threats.extend(threats)
+                except:
+                    continue
+                    
+            print(f"   ML process threats: {len(process_threats)}")
+            
+        except Exception as e:
+            print(f"   ❌ Process scan error: {e}")
         
         # ML Network Scan
-        print("🌐 ML Network Scan...")
+        print("\n🌐 ML Network Scan...")
         network_threats = []
-        connections = psutil.net_connections()[:100]
-        for conn in connections:
-            try:
-                threats = self.ml_detector.analyze_network_with_ml(conn)
-                network_threats.extend(threats)
-            except:
-                continue
-                
-        print(f"   Found {len(network_threats)} network anomalies")
-        all_threats.extend(network_threats)
+        try:
+            for conn in psutil.net_connections():
+                try:
+                    threats = self.ml_detector.analyze_network_with_ml(conn)
+                    if threats:
+                        network_threats.extend(threats)
+                except:
+                    continue
+                    
+            print(f"   ML network threats: {len(network_threats)}")
+            
+        except Exception as e:
+            print(f"   ❌ Network scan error: {e}")
         
-        # Results
-        print(f"\n📊 ML SCAN RESULTS:")
-        print(f"   Total ML anomalies: {len(all_threats)}")
+        # Summary
+        print("\n📊 ML SCAN SUMMARY")
+        print("=" * 50)
         print(f"   File anomalies: {len(file_threats)}")
         print(f"   Process anomalies: {len(process_threats)}")
         print(f"   Network anomalies: {len(network_threats)}")
+        
+        all_threats = file_threats + process_threats + network_threats
         
         if all_threats:
             print(f"\n⚠️  ML ANOMALIES DETECTED:")
