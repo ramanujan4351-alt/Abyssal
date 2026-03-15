@@ -29,23 +29,37 @@ What the installer does:
 ✅ Sets permissions and tests installation
 
 Step 3: Verify Installation
+
 bash
+
 python3 abyssal.py --help
+
 🔧 QUICK START
+
 For Immediate Protection:
+
 bash
+
 # Start AI/ML real-time monitoring
+
 python3 abyssal.py --ml-monitor
  
 # Activate complete anonymity
+
 python3 abyssal.py --anon
  
 # Run comprehensive security scan
+
 python3 abyssal.py --ml-scan
+
 For Interactive Control:
+
 bash
+
 python3 abyssal.py --interactive (not functional currently)
+
 ## 🤖 AI/ML FEATURES
+
 🧠 Machine Learning Models:
 
 Isolation Forest - Unsupervised anomaly detection
