@@ -5,11 +5,13 @@
  
 ## 🚀 **INSTALLATION**
  
-### **Step 1: Clone Repository**
-```bash
-git clone https://github.com/yourusername/abyssal-security.git
-cd abyssal-security
+## **Step 1: Clone Repository**
+bash
+
+cd abyssal
+
 Step 2: Run Installer
+
 bash
 sudo ./install.sh
 Step 3: Launch Application
