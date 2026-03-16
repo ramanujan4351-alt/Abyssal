@@ -8,7 +8,7 @@
 ## **Step 1: Clone Repository**
 bash
 
-cd abyssal
+cd Abyssal/abyssal
 
 Step 2: Run Installer
 
@@ -23,8 +23,11 @@ abyssal-security
 Double-click "Abyssal Security" on desktop
  
 # Option 3: Direct execution
+
 python3 /opt/abyssal-security/abyssal-standalone.py
+
 🎮 USAGE
+
 GUI Interface
 Launch the application and use the tabbed interface:
 
